@@ -1,0 +1,16 @@
+# Python 3.9-3.12 (developed and smoke-tested on CPU with Python 3.12.4).
+# The PyPI torch wheel for Linux bundles CUDA 12.x; see README for other CUDA builds.
+torch==2.5.1
+transformers==4.46.3
+tokenizers==0.20.3
+huggingface-hub==0.26.2
+safetensors==0.4.5
+numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.5.2
+scipy==1.13.1
+joblib==1.4.2
+threadpoolctl==3.5.0
+PyYAML==6.0.2
+tqdm==4.67.1
+pytest==8.3.3

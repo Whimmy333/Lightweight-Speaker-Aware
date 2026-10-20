@@ -1,0 +1,16 @@
+run_name: emorynlp_tfidf_lr
+model:
+  type: tfidf_lr
+data:
+  dataset: emorynlp
+  processed_dir: data/processed
+output_dir: outputs/runs/emorynlp_tfidf_lr
+seed: 42
+tfidf_lr:
+  sublinear_tf: true
+  max_iter: 2000
+  grid:  # every combination is fitted on train and scored on dev Macro-F1
+    ngram_range: [[1, 1], [1, 2]]
+    min_df: [1, 2]
+    C: [0.1, 0.3, 1.0, 3.0, 10.0]
+    class_weight: [null, balanced]
