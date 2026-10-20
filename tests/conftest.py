@@ -51,6 +51,40 @@ def make_record(dialogue_id, turn, speakers, text, label="neutral", split="train
     }
 
 
+TINY_VOCAB = ["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "text", "hello", "oh", "no", "yes", "what", "!", "?", "."] + [
+    str(i) for i in range(20)] + ["word"]
+
+
+@pytest.fixture(scope="session")
+def tiny_encoder(tmp_path_factory):
+    """A randomly initialised 1-layer DistilBERT + tokenizer saved to disk (no download)."""
+    import torch
+    from transformers import DistilBertConfig, DistilBertModel, DistilBertTokenizerFast
+
+    d = tmp_path_factory.mktemp("tiny_distilbert")
+    (d / "vocab.txt").write_text("\n".join(TINY_VOCAB) + "\n", encoding="utf-8")
+    DistilBertTokenizerFast(vocab_file=str(d / "vocab.txt")).save_pretrained(d)
+    torch.manual_seed(0)
+    cfg = DistilBertConfig(vocab_size=len(TINY_VOCAB), dim=32, n_layers=1, n_heads=2, hidden_dim=64,
+                           max_position_embeddings=512)
+    DistilBertModel(cfg).save_pretrained(d)
+    return str(d)
+
+
+def write_tiny_processed(root: Path, dataset="meld", dialogues=4, turns=5):
+    """Small processed split files in the unified format."""
+    from data.loaders import LABELS, processed_path, write_records
+
+    labels = LABELS[dataset]
+    speakers = ["A", "B", "A", "C", "B"]
+    for split in ("train", "dev", "test"):
+        recs = [make_record(f"dia{d}", t, [speakers[t % len(speakers)]], f"text {t} word {d} {'!' if t % 2 else '?'}",
+                            label=labels[(d + t) % len(labels)], split=split, dataset=dataset)
+                for d in range(dialogues) for t in range(turns)]
+        write_records(recs, processed_path(root, dataset, split))
+    return root
+
+
 @pytest.fixture
 def processed_dir():
     """Real processed data, if prepare_data.py has been run."""

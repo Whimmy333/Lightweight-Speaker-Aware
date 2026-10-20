@@ -5,6 +5,8 @@ __pycache__/
 .DS_Store
 data/raw/
 data/processed/
-outputs/runs/*/checkpoints/
+data/pretrained/
+outputs/runs/**/checkpoints/
+outputs/smoke/
 *.pt
 *.joblib

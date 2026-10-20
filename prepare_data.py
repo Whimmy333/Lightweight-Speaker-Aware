@@ -1,11 +1,12 @@
-"""Download, normalise and audit MELD + EmoryNLP (original text release).
+"""Download, normalise and audit MELD + EmoryNLP (original text release), and fetch the encoder.
 
-    python prepare_data.py                 # download missing raw files, write data/processed, audit
-    python prepare_data.py --no-download   # only use files already placed in data/raw/
+    python prepare_data.py                 # download what is missing, write data/processed, audit
+    python prepare_data.py --no-download   # only use files already placed in data/raw/ and data/pretrained/
 
 Raw files go to data/raw/<dataset>/<official filename>. Downloads are pinned to a
-fixed commit of each official repository and verified by SHA-256. If a download is
-refused, the script stops and lists where to place the files by hand.
+fixed commit of each official repository and verified by SHA-256. DistilBERT is saved to
+data/pretrained/distilbert-base-uncased (pinned Hugging Face revision), so training never
+needs network access. If a download is refused, the script stops and lists what to place by hand.
 """
 
 from __future__ import annotations
@@ -23,6 +24,11 @@ from data.loaders import DATASETS, RAW_FILES, SPLITS, load_raw_split, processed_
 
 MELD_COMMIT = "ca3e1266db4cc4a4e802156e2f721c4cd114a696"  # declare-lab/MELD, last change to data/MELD CSVs
 EMORYNLP_COMMIT = "28df4a28189ec23819ede94898ae16d1450c1ff1"  # emorynlp/emotion-detection, last change to json/
+
+ENCODER_REPO = "distilbert/distilbert-base-uncased"
+ENCODER_REVISION = "12040accade4e8a0f71eabdb258fecc2e7e948be"
+ENCODER_DIR = Path("data/pretrained/distilbert-base-uncased")
+ENCODER_FILES = ("config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json", "vocab.txt")
 
 SOURCES = {
     "meld": {
@@ -104,6 +110,26 @@ def fetch_raw(raw_dir: Path, datasets, allow_download: bool) -> list:
     return sources
 
 
+def fetch_encoder(allow_download: bool) -> None:
+    if all((ENCODER_DIR / f).exists() for f in ("config.json", "model.safetensors", "vocab.txt")):
+        return
+    url = f"https://huggingface.co/{ENCODER_REPO}/tree/{ENCODER_REVISION}"
+    if allow_download:
+        print(f"downloading {ENCODER_REPO}@{ENCODER_REVISION[:8]} -> {ENCODER_DIR}")
+        try:
+            from transformers import AutoModel, AutoTokenizer
+
+            AutoTokenizer.from_pretrained(ENCODER_REPO, revision=ENCODER_REVISION).save_pretrained(ENCODER_DIR)
+            AutoModel.from_pretrained(ENCODER_REPO, revision=ENCODER_REVISION).save_pretrained(ENCODER_DIR)
+            (ENCODER_DIR / "SOURCE.txt").write_text(f"{ENCODER_REPO}@{ENCODER_REVISION}\n", encoding="utf-8")
+            return
+        except Exception as exc:  # network errors surface as several exception types
+            print(f"encoder download failed: {exc}", file=sys.stderr)
+    print(f"\nDistilBERT is missing. Put {', '.join(ENCODER_FILES)} from {url}\ninto {ENCODER_DIR}/ "
+          "and rerun with --no-download.", file=sys.stderr)
+    sys.exit(2)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--raw-dir", default="data/raw")
@@ -111,6 +137,7 @@ def main() -> None:
     ap.add_argument("--audit-out", default="outputs/data_audit.md")
     ap.add_argument("--datasets", nargs="+", default=list(DATASETS), choices=DATASETS)
     ap.add_argument("--no-download", action="store_true", help="never download; use files in --raw-dir")
+    ap.add_argument("--skip-encoder", action="store_true", help="do not fetch DistilBERT (TF-IDF only)")
     ap.add_argument("--allow-checksum-mismatch", action="store_true",
                     help="continue when a raw file differs from the pinned official version")
     args = ap.parse_args()
@@ -141,6 +168,9 @@ def main() -> None:
     meld_meta = meld_raw_metadata(raw_dir) if "meld" in data else None
     write_audit(data, Path(args.audit_out), sources=sources, meld_meta=meld_meta)
     print(f"audit written to {args.audit_out}")
+    if not args.skip_encoder:
+        fetch_encoder(allow_download=not args.no_download)
+        print(f"encoder ready in {ENCODER_DIR}")
 
 
 if __name__ == "__main__":

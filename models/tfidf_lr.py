@@ -23,6 +23,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
 from data.loaders import LABELS, label_to_id, load_split
+from eval.latency import measure_latency
 from eval.metrics import compute_metrics, metrics_to_markdown, save_metrics
 from eval.predictions import predictions_frame, save_predictions
 
@@ -33,6 +34,13 @@ TOKEN_PATTERN = r"(?u)\b\w[\w']*\b|[!?]"
 def preprocess(text: str) -> str:
     # Model-side normalisation only; stored data keep the original characters.
     return text.lower().replace("’", "'").replace("‘", "'")
+
+
+def full_proba(clf: LogisticRegression, x, n_labels: int) -> np.ndarray:
+    """predict_proba has one column per class seen in training; map them to label ids."""
+    probs = np.zeros((x.shape[0], n_labels))
+    probs[:, clf.classes_] = clf.predict_proba(x)
+    return probs
 
 
 def _grid(cfg: dict):
@@ -47,6 +55,9 @@ def run(config: dict) -> dict:
     processed_dir = Path(config["data"].get("processed_dir", "data/processed"))
     out_dir = Path(config["output_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
+    if (out_dir / "DONE").exists():
+        print(f"{config['run_name']} is already complete ({out_dir}/DONE); delete the directory to rerun")
+        return {}
     with open(out_dir / "config.yaml", "w", encoding="utf-8") as f:
         yaml.safe_dump(config, f, sort_keys=False)
 
@@ -99,7 +110,7 @@ def run(config: dict) -> dict:
     results = {"best_params": best_params}
     report = [f"# TF-IDF + LR on {dataset}", "", f"Selected on dev Macro-F1: `{json.dumps(best_params)}`", ""]
     for sp in ("dev", "test"):
-        probs = clf.predict_proba(vec.transform(text[sp]))
+        probs = full_proba(clf, vec.transform(text[sp]), len(labels))
         pred = probs.argmax(axis=1)
         m = compute_metrics(y[sp], pred, labels)
         save_metrics(m, out_dir / f"metrics_{sp}.json")
@@ -107,7 +118,15 @@ def run(config: dict) -> dict:
         report.append(metrics_to_markdown(m, f"{sp} split"))
         results[sp] = m
         print(f"[{sp}] macro-F1={m['macro_f1']:.4f} weighted-F1={m['weighted_f1']:.4f}")
-    (out_dir / "report.md").write_text("\n".join(report), encoding="utf-8")
+    lcfg = config.get("latency", {})
+    latency = measure_latency(lambda recs: clf.predict(vec.transform([r["text"] for r in recs])), splits["test"],
+                              lcfg.get("batch_size", 1), lcfg.get("warmup", 10), lcfg.get("max_samples", 300), "cpu")
+    (out_dir / "latency.json").write_text(json.dumps(latency, indent=2), encoding="utf-8")
+    report.append(f"Latency: {latency['ms_per_utterance']:.3f} ms/utterance end to end "
+                  f"(batch size {latency['batch_size']}, {latency['n_samples']} test utterances, CPU).")
+    (out_dir / "report.md").write_text("\n".join(report) + "\n", encoding="utf-8")
+    (out_dir / "DONE").write_text(time.strftime("%Y-%m-%dT%H:%M:%S"), encoding="utf-8")
+    results["latency"] = latency
     return results
 
 

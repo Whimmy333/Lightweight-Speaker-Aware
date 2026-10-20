@@ -1,11 +1,11 @@
 run_name: meld_tfidf_lr
-model:
-  type: tfidf_lr
+seed: 42
 data:
   dataset: meld
   processed_dir: data/processed
-output_dir: outputs/runs/meld_tfidf_lr
-seed: 42
+model:
+  name: tfidf_lr
+  type: tfidf_lr
 tfidf_lr:
   sublinear_tf: true
   max_iter: 2000
@@ -27,3 +27,8 @@ tfidf_lr:
     class_weight:
     - null
     - balanced
+latency:
+  batch_size: 1
+  max_samples: 300
+  warmup: 10
+output_dir: outputs/runs/meld_tfidf_lr

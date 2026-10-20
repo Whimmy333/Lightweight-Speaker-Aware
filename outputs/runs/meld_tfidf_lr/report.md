@@ -59,3 +59,5 @@ Confusion matrix (rows = gold, columns = predicted):
 | neutral | 75 | 12 | 33 | 100 | 894 | 69 | 73 |
 | sadness | 27 | 4 | 7 | 25 | 84 | 51 | 10 |
 | surprise | 27 | 4 | 4 | 39 | 42 | 12 | 153 |
+
+Latency: 0.668 ms/utterance end to end (batch size 1, 300 test utterances, CPU).
