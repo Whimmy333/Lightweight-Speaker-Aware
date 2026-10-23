@@ -7,7 +7,9 @@
 #
 # Safe to rerun: finished runs are skipped, interrupted runs resume from the last finished
 # epoch. A failed run is logged and the script moves on; the exit code is 1 if any run failed.
-# Set PYTHON=/path/to/python to choose the interpreter.
+# Set PYTHON=/path/to/python to choose the interpreter. When several jobs run in parallel,
+# run `python prepare_data.py` once first and start every job with SKIP_PREPARE=1, so no job
+# rewrites data/processed/ while another one is reading it.
 
 set -uo pipefail
 cd "$(dirname "$0")"
@@ -49,8 +51,13 @@ for cfg in "${CONFIGS[@]}"; do
   [[ -f "$cfg" ]] || { echo "missing $cfg; run: $PYTHON configs/generate_configs.py" >&2; exit 1; }
 done
 
-echo "== preparing data"
-"$PYTHON" prepare_data.py || { echo "prepare_data.py failed" >&2; exit 1; }
+if [[ "${SKIP_PREPARE:-0}" == 1 ]]; then
+  [[ -f data/processed/meld/train.jsonl ]] || { echo "SKIP_PREPARE=1 but data/processed is missing" >&2; exit 1; }
+  echo "== SKIP_PREPARE=1: using existing data/processed"
+else
+  echo "== preparing data"
+  "$PYTHON" prepare_data.py || { echo "prepare_data.py failed" >&2; exit 1; }
+fi
 
 selected() {
   [[ ${#PATTERNS[@]} -eq 0 ]] && return 0
