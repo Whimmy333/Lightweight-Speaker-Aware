@@ -9,8 +9,8 @@ it in controlled comparisons against a TF-IDF baseline, single-utterance DistilB
 concatenation and fixed-weight fusion, on **MELD** and **EmoryNLP**.
 
 > **Status.** Data pipeline, audit, TF-IDF baseline and all neural models are complete and tested:
-> 47 unit tests pass, and all 44 experiment configurations ran end to end on CPU. **GPU training is the
-> next step.** See [docs/HANDOVER.md](docs/HANDOVER.md).
+> 47 unit tests pass, and all 44 experiment configurations ran end to end on CPU. **GPU training on NTU EEE
+> Cluster 02 is the next step.** See [docs/HANDOVER.md](docs/HANDOVER.md).
 
 | document | for |
 |---|---|
@@ -110,7 +110,18 @@ peaceful 0.19 on EmoryNLP.
 
 ## Quick start
 
-Python 3.9–3.12. Full instructions, including the GPU cluster, are in [docs/HANDOVER.md](docs/HANDOVER.md).
+**On NTU EEE Cluster 02** (A40 GPUs, Slurm), use the ready-made job scripts from the repository folder in an
+SSD project directory. Never run installs or training on the login node.
+[docs/HANDOVER.md](docs/HANDOVER.md) has every step and the cluster rules:
+
+```bash
+sbatch cluster/setup.sbatch       # CPU: conda env, packages, data + DistilBERT, tests
+sbatch cluster/smoke.sbatch       # CPU: every config on 50 utterances
+sbatch cluster/gpu_check.sbatch   # A40: short mixed-precision check
+sbatch cluster/train.sbatch       # A40: all experiments (resubmit to resume)
+```
+
+**Anywhere else** (Python 3.9–3.12):
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -171,6 +182,7 @@ data/                loaders.py (records), context.py (history windows), audit.p
 models/              tfidf_lr.py, batching.py (token budget), neural.py (models), trainer.py
 eval/                metrics.py, predictions.py, latency.py, aggregate.py
 configs/             generate_configs.py and the 44 generated YAML files
+cluster/             Slurm job scripts for NTU EEE Cluster 02 (setup, smoke, gpu_check, train, aggregate)
 notebooks/           data_cleaning.ipynb
 docs/                TECHNICAL.md, HANDOVER.md
 outputs/             data_audit.md, flagged_dialogues.csv, runs/<run_name>/, results_summary.*

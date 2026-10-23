@@ -274,8 +274,9 @@ predictions.
 
 Each of the 42 neural configurations trains twice (two learning rates), so there are 84 training runs of up
 to 5 epochs each. `run_all.sh` runs them in this priority order, so the main comparison finishes first.
-GPU time has not been measured yet. Each epoch's duration is logged, so the first finished run gives a
-reliable estimate. Disk use is about 0.25 GB per finished run (one checkpoint), about 11 GB in total.
+The runs are planned on one NVIDIA A40 of NTU EEE Cluster 02 (`cluster/train.sbatch`); all training jobs
+use the same GPU model, so latencies are comparable. GPU time has not been measured yet. Each epoch's
+duration is logged, so the first finished run gives a reliable estimate. Disk use is about 0.25 GB per finished run (one checkpoint), about 11 GB in total.
 
 ## 8. Results so far
 
@@ -341,6 +342,10 @@ configurations); those smoke-test scores carry no information about model qualit
   Separate checks exercised the bf16 mixed-precision path on CPU and resume on a non-CPU device (Apple
   MPS). Those checks found and fixed a resume bug: random-number states had been loaded onto the GPU.
 - **Smoke test.** `bash run_all.sh --smoke` ran all 44 configurations on CPU without errors in 16 minutes.
+- **Cluster job scripts.** `cluster/*.sbatch` follow the NTU EEE Cluster 02 rules: environment and caches
+  in the SSD project directory, a named GPU model, no CPU/memory flags on GPU jobs, CPU-only jobs for setup
+  and smoke tests. Their logic was exercised locally with stand-ins for `module`/`conda`/`nvidia-smi`; they
+  have not yet run on the cluster itself.
 
 ## 11. Limitations and risks
 
@@ -351,8 +356,9 @@ configurations); those smoke-test scores carry no information about model qualit
   for this in `fusion_weights_test.csv`.
 - **Label noise and ambiguity.** Many identical texts have different gold labels, and re-used scenes are
   labelled inconsistently (Section 2.4). This caps attainable scores and adds variance to minority classes.
-- **Untested precision path.** The fp16 path (GPUs without bf16, e.g. V100, T4) could not be tested
-  locally; bf16 and fp32 were.
+- **Hardware.** Training is planned on NTU EEE Cluster 02 with NVIDIA A40 GPUs (bf16). The fp16
+  fallback for GPUs without bf16 is untested, but no allowed GPU on that cluster needs it. Its Blackwell
+  GPUs (`pro6000`, `rtx5090`) are excluded: the pinned torch 2.5.1 has no kernels for them.
 - **Seeds.** Three seeds give a rough spread, not a tight confidence interval. Differences smaller than
   the seed standard deviation should not be claimed.
 - **Stakeholder evidence.** As noted in the proposal, user needs are design assumptions. The usability
@@ -360,7 +366,7 @@ configurations); those smoke-test scores carry no information about model qualit
 
 ## 12. Next steps
 
-1. Run `run_all.sh` on the GPU cluster (see `docs/HANDOVER.md`).
+1. Run the experiments on NTU EEE Cluster 02 with the job scripts in `cluster/` (see `docs/HANDOVER.md`).
 2. Fill the results tables from `outputs/results_summary.md`; report mean ± std over seeds and latency.
 3. Add a paired bootstrap test on the saved test predictions for the key comparisons (adaptive vs fixed,
    adaptive vs concat).
