@@ -19,7 +19,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from data.audit import meld_raw_metadata, write_audit
+from data.audit import flagged_dialogues, meld_raw_metadata, write_audit
 from data.loaders import DATASETS, RAW_FILES, SPLITS, load_raw_split, processed_path, raw_path, write_records
 
 MELD_COMMIT = "ca3e1266db4cc4a4e802156e2f721c4cd114a696"  # declare-lab/MELD, last change to data/MELD CSVs
@@ -135,6 +135,8 @@ def main() -> None:
     ap.add_argument("--raw-dir", default="data/raw")
     ap.add_argument("--out-dir", default="data/processed")
     ap.add_argument("--audit-out", default="outputs/data_audit.md")
+    ap.add_argument("--flagged-out", default="outputs/flagged_dialogues.csv",
+                    help="dialogues to exclude in sensitivity analyses (official splits are not changed)")
     ap.add_argument("--datasets", nargs="+", default=list(DATASETS), choices=DATASETS)
     ap.add_argument("--no-download", action="store_true", help="never download; use files in --raw-dir")
     ap.add_argument("--skip-encoder", action="store_true", help="do not fetch DistilBERT (TF-IDF only)")
@@ -168,6 +170,9 @@ def main() -> None:
     meld_meta = meld_raw_metadata(raw_dir) if "meld" in data else None
     write_audit(data, Path(args.audit_out), sources=sources, meld_meta=meld_meta)
     print(f"audit written to {args.audit_out}")
+    flagged = flagged_dialogues(data)
+    flagged.to_csv(args.flagged_out, index=False)
+    print(f"{len(flagged)} flagged dialogues written to {args.flagged_out}")
     if not args.skip_encoder:
         fetch_encoder(allow_download=not args.no_download)
         print(f"encoder ready in {ENCODER_DIR}")

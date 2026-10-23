@@ -37,8 +37,19 @@ This downloads:
 | EmoryNLP `emotion-detection-trn/dev/tst.json` | `data/raw/emorynlp/` | `emorynlp/emotion-detection`, commit `28df4a2`, SHA-256 checked |
 | DistilBERT (`distilbert-base-uncased`) | `data/pretrained/distilbert-base-uncased/` | Hugging Face revision `12040ac` |
 
-It then writes the unified records to `data/processed/<dataset>/<split>.jsonl` and the data audit to
-`outputs/data_audit.md`.
+It then writes the unified records to `data/processed/<dataset>/<split>.jsonl`, the data audit to
+`outputs/data_audit.md`, and `outputs/flagged_dialogues.csv` (see below).
+
+The project uses exactly two datasets, MELD and EmoryNLP, with their official splits. The cleaning steps
+and every check are walked through in **`notebooks/data_cleaning.ipynb`** (saved with its outputs; rerun
+it after `prepare_data.py`). Overlaps that come from the datasets themselves are kept in the official
+splits and listed in `outputs/flagged_dialogues.csv` for sensitivity analyses:
+
+| dataset | split | flagged dialogues | why |
+|---|---|---|---|
+| MELD | test | `dia84`, `dia85` (9 utterances, 0.34%) | same scene as train `dia12`, re-segmented, labels mostly differ |
+| EmoryNLP | dev | `s04_e21_c06`–`c09` (34 utterances) | clip-show episode replaying training scenes |
+| EmoryNLP | dev | `s04_e01_c14` (5 utterances) | exact duplicate of `s04_e01_c13` |
 
 **Cluster compute nodes without internet:** run `python prepare_data.py` once on a login node (or any
 machine with internet, then copy `data/` over). After that, nothing downloads anything; the training
@@ -103,6 +114,7 @@ bash run_all.sh
 | `outputs/results_summary.csv`, `outputs/results_runs.csv` | the same numbers per group and per run |
 | `outputs/run_all_status.log` | one line per config: OK/FAIL and duration |
 | `outputs/data_audit.md` | split sizes, label distribution, duplicate and leakage checks |
+| `outputs/flagged_dialogues.csv` | dataset-level overlaps to exclude in sensitivity analyses |
 | `outputs/runs/<run_name>/` | everything for one run (below) |
 
 Inside `outputs/runs/<run_name>/`:
@@ -200,6 +212,7 @@ data/                loaders.py, context.py, audit.py (raw/, processed/, pretrai
 models/              tfidf_lr.py, batching.py, neural.py, trainer.py
 eval/                metrics.py, predictions.py, latency.py, aggregate.py
 configs/             generate_configs.py and the 44 generated YAML files
+notebooks/           data_cleaning.ipynb: cleaning steps and checks, with outputs
 outputs/             data_audit.md, runs/<run_name>/, results_summary.*
 app/                 Streamlit demo (later stage)
 tests/               pytest suite
@@ -211,7 +224,7 @@ tests/               pytest suite
 python -m pytest
 ```
 
-Covers the loaders, context construction (first turn, window sizes, speaker split, no label leakage),
+Covers the loaders, the scene-overlap detector, context construction (first turn, window sizes, speaker split, no label leakage),
 batching under the token budget, fusion masking and weights, every model type end to end on a tiny
 randomly initialised encoder, crash/resume, and the aggregation. Needs no download; two tests that read
 the real processed data are skipped if `prepare_data.py` has not been run.

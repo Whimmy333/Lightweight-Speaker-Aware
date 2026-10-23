@@ -1,0 +1,9 @@
+dataset,split,dialogue_id,n_utterances,issue,matched_split,matched_dialogue_id,n_matched_utterances
+emorynlp,dev,s04_e01_c14,5,duplicate_within_split,dev,s04_e01_c13,5
+emorynlp,dev,s04_e21_c06,8,same_scene_as_train,train,s01_e07_c11,5
+emorynlp,dev,s04_e21_c07,5,same_scene_as_train,train,s01_e05_c15,5
+emorynlp,dev,s04_e21_c08,10,same_scene_as_train,train,s02_e07_c11,6
+emorynlp,dev,s04_e21_c09,11,same_scene_as_train,train,s03_e15_c07,10
+emorynlp,dev,s04_e21_c09,11,same_scene_as_train,train,s03_e16_c01,6
+meld,test,dia84,3,same_scene_as_train,train,dia12,2
+meld,test,dia85,6,same_scene_as_train,train,dia12,4

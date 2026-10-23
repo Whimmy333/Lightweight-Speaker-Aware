@@ -14,3 +14,7 @@ threadpoolctl==3.5.0
 PyYAML==6.0.2
 tqdm==4.67.1
 pytest==8.3.3
+# notebooks/ (Jupyter kernel for VS Code/Jupyter, and headless execution with nbconvert)
+ipykernel==6.29.5
+nbconvert==7.16.4
+nbformat==5.10.4

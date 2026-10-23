@@ -40,6 +40,98 @@ def _dialogue_signatures(records: List[dict]) -> Dict[str, tuple]:
     return {d: tuple(t for _, t in sorted(v)) for d, v in dia.items()}
 
 
+SPLIT_PAIRS = (("train", "dev"), ("train", "test"), ("dev", "test"))
+SCENE_NGRAM = 6  # word n-gram used to find re-used scenes
+RARE_MAX_DIALOGUES = 3  # "rare" = in at most this many dialogues (a scene can air, be recapped, be re-used)
+OVERLAP_COLUMNS = ["dataset", "split", "dialogue_id", "utterance_id", "text", "label", "matched_split",
+                   "matched_dialogue_id", "matched_utterance_id", "matched_text", "matched_label"]
+
+
+def _words(text: str) -> List[str]:
+    return re.findall(r"[a-z0-9']+", normalize_text(text))
+
+
+def _match_keys(text: str) -> set:
+    w = _words(text)
+    grams = (tuple(w[i:i + SCENE_NGRAM]) for i in range(len(w) - SCENE_NGRAM + 1))
+    # Skip spelled-out words ("C.H.E.E.S.E." -> c h e e s e), which recur as names across scenes.
+    keys = {("g",) + g for g in grams if sum(len(t) == 1 for t in g) <= SCENE_NGRAM // 2}
+    if len(w) >= 4:
+        keys.add(("t", " ".join(w)))
+    return keys
+
+
+def find_scene_overlaps(data: Dict[str, Dict[str, List[dict]]]) -> pd.DataFrame:
+    """Utterances of a later split (dev, test) that belong to a scene already in an earlier split.
+
+    Utterance u matches dialogue T of the earlier split when they share a rare 6-word sequence
+    or the same rare text of >= 4 words ("rare" = found in at most 3 dialogues of the dataset).
+    Re-segmented copies of a line still share 6-word sequences, while common phrases such as
+    "oh my god, oh my god" are not rare. Dialogue D reproduces T when >= 2 distinct texts match,
+    or when more than half of D's utterances with >= 5 words match. One row per matched utterance.
+    """
+    rows = []
+    for ds, splits in data.items():
+        recs = {(sp, r["utterance_id"]): r for sp in SPLITS for r in splits[sp]}
+        keys = {k: _match_keys(r["text"]) for k, r in recs.items()}
+        postings = defaultdict(set)
+        for (sp, uid), ks in keys.items():
+            for k in ks:
+                postings[k].add((sp, recs[(sp, uid)]["dialogue_id"], uid))
+        rare = {k: p for k, p in postings.items() if len({(s, d) for s, d, _ in p}) <= RARE_MAX_DIALOGUES}
+        for a, b in SPLIT_PAIRS:
+            matches = defaultdict(dict)  # (eval dialogue, earlier dialogue) -> {eval uid: earlier uid}
+            long_ids = defaultdict(set)
+            for r in splits[b]:
+                if len(_words(r["text"])) >= 5:
+                    long_ids[r["dialogue_id"]].add(r["utterance_id"])
+                for k in keys[(b, r["utterance_id"])]:
+                    for s, d, u in sorted(rare.get(k, ())):
+                        if s == a:
+                            matches[(r["dialogue_id"], d)].setdefault(r["utterance_id"], u)
+            for (dia, src), m in sorted(matches.items()):
+                texts = {" ".join(_words(recs[(b, u)]["text"])) for u in m}
+                frac = len(set(m) & long_ids[dia]) / max(len(long_ids[dia]), 1)
+                if len(texts) < 2 and frac <= 0.5:
+                    continue
+                for u, v in m.items():
+                    r, s = recs[(b, u)], recs[(a, v)]
+                    rows.append([ds, b, dia, u, r["text"], r["label"], a, src, v, s["text"], s["label"]])
+    return pd.DataFrame(rows, columns=OVERLAP_COLUMNS)
+
+
+def find_duplicate_dialogues(data: Dict[str, Dict[str, List[dict]]]) -> pd.DataFrame:
+    """Dialogues whose normalised text sequence repeats an earlier dialogue of the same split."""
+    rows = []
+    for ds, splits in data.items():
+        for sp in SPLITS:
+            first = {}
+            sizes = Counter(r["dialogue_id"] for r in splits[sp])
+            for d, sig in _dialogue_signatures(splits[sp]).items():
+                if sig in first:
+                    rows.append([ds, sp, d, first[sig], sizes[d]])
+                else:
+                    first[sig] = d
+    return pd.DataFrame(rows, columns=["dataset", "split", "dialogue_id", "duplicate_of", "n_utterances"])
+
+
+def flagged_dialogues(data: Dict[str, Dict[str, List[dict]]]) -> pd.DataFrame:
+    """Dialogue-level list for sensitivity analyses: re-used scenes and within-split duplicates.
+    Nothing is removed from the official splits."""
+    cols = ["dataset", "split", "dialogue_id", "n_utterances", "issue", "matched_split", "matched_dialogue_id",
+            "n_matched_utterances"]
+    sizes = {(ds, sp, d): n for ds, s in data.items() for sp in SPLITS
+             for d, n in Counter(r["dialogue_id"] for r in s[sp]).items()}
+    rows = []
+    ov = find_scene_overlaps(data)
+    for (ds, sp, d, msp, md), g in ov.groupby(["dataset", "split", "dialogue_id", "matched_split", "matched_dialogue_id"]):
+        rows.append([ds, sp, d, sizes[(ds, sp, d)], f"same_scene_as_{msp}", msp, md, g.utterance_id.nunique()])
+    for r in find_duplicate_dialogues(data).itertuples():
+        rows.append([r.dataset, r.split, r.dialogue_id, r.n_utterances, "duplicate_within_split", r.split,
+                     r.duplicate_of, r.n_utterances])
+    return pd.DataFrame(rows, columns=cols).sort_values(["dataset", "split", "dialogue_id"]).reset_index(drop=True)
+
+
 def _section_counts(data: Dict[str, Dict[str, List[dict]]], findings: List[str]) -> List[str]:
     out = [
         "## 1. Utterance counts vs. proposal",
@@ -181,18 +273,43 @@ def _section_cross_split(data, meld_meta: Optional[pd.DataFrame], findings: List
                 f"| {len(long_hits)} | {near} |"
             )
             same_dia_lines += [f"- {ds} {a} `{x}` = {b} `{y}`: {list(s)}" for x, y, s in same_dia]
-            if long_hits:
-                dias = sorted({u.rsplit("_", 1)[0] for _, u, _ in long_hits})
-                findings.append(f"{ds}: {len(long_hits)} long {b} utterances also occur in {a} "
-                                f"({len(dias)} {b} dialogue(s): {', '.join(dias[:6])}{' ...' if len(dias) > 6 else ''}).")
             long_lines += [f"- {ds} {a} `{x}` = {b} `{y}`: \"{t}\"" for x, y, t in long_hits]
     out.append("")
+    out += ["These exact-match counts are informational: short generic lines (\"Hey.\", \"I'm sorry.\") and "
+            "recurring lines (a phone hold message) match by chance. Re-used scenes are detected below.", ""]
     if same_dia_lines:
         out += ["Identical dialogues across splits (normalised text sequence):", ""] + same_dia_lines + [""]
-        findings.append(f"{len(same_dia_lines)} dialogue(s) have the same text sequence as a dialogue in another "
-                        "split; inspect the list in section 5 (short generic exchanges can match by chance).")
     if long_lines:
         out += [f"Long (>= {LONG_WORDS} words) utterances shared across splits:", ""] + long_lines + [""]
+
+    ov = find_scene_overlaps(data)
+    out += ["**Re-used scenes (flagged)**", "",
+            f"An utterance matches an earlier-split dialogue when they share a rare {SCENE_NGRAM}-word sequence or "
+            f"a rare text of >= 4 words (rare = in at most {RARE_MAX_DIALOGUES} dialogues of the dataset); a "
+            "dialogue reproduces a scene when >= 2 distinct texts match or more than half of its utterances "
+            "with >= 5 words match. This survives re-segmentation and wrong episode metadata.", ""]
+    if ov.empty:
+        out += ["None found.", ""]
+    else:
+        out += ["| dataset | split | dialogue | matched | matched utterances | same gold label |",
+                "|---|---|---|---|---:|---:|"]
+        keys = ["dataset", "split", "dialogue_id", "matched_split", "matched_dialogue_id"]
+        for (ds, sp, d, msp, md), g in ov.groupby(keys, sort=False):
+            out.append(f"| {ds} | {sp} | `{d}` | {msp} `{md}` | {len(g)} | {(g.label == g.matched_label).sum()} / {len(g)} |")
+        out += ["", "Matched utterance pairs:", ""]
+        for r in ov.itertuples():
+            out.append(f"- {r.dataset} {r.split} `{r.utterance_id}` ({r.label}) ~ {r.matched_split} "
+                       f"`{r.matched_utterance_id}` ({r.matched_label}): \"{r.text}\"")
+        out.append("")
+        for (ds, sp), g in ov.groupby(["dataset", "split"], sort=False):
+            n_sp = len(data[ds][sp])
+            dias = sorted(g.dialogue_id.unique())
+            n_utt = sum(1 for r in data[ds][sp] if r["dialogue_id"] in set(dias))
+            findings.append(
+                f"{ds} {sp}: dialogue(s) {', '.join(dias)} reproduce scenes from "
+                f"{'/'.join(sorted(g.matched_split.unique()))} ({n_utt} utterances, {_pct(n_utt, n_sp)} of {sp}); "
+                f"gold labels differ on {(g.label != g.matched_label).sum()} of {len(g)} matched utterances. "
+                "Listed in outputs/flagged_dialogues.csv.")
 
     # Episode-level overlap. EmoryNLP scene ids embed the episode (sXX_eYY_cZZ).
     out += ["**Episode overlap between splits**", ""]
@@ -230,8 +347,6 @@ def _section_cross_split(data, meld_meta: Optional[pd.DataFrame], findings: List
         )
         if clip_lines:
             out += ["", "Same clip in two splits:", ""] + clip_lines
-            findings.append(f"meld: {len(clip_lines)} utterance(s) are the same clip (episode, start time, text) "
-                            "in two splits.")
     out.append("")
 
     if {"meld", "emorynlp"} <= set(data):
