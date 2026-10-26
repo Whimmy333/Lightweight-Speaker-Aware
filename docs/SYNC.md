@@ -38,6 +38,7 @@ concat, fixed, adaptive). Also a results tab built from `outputs/results_summary
 
 ## Log
 
+- 2026-10-26 (chat): Slides 15–17 written into the team deck (EE6405_Slides, currently positions 16–18, after the team's content) with ~45 s spoken scripts in the speaker notes. Slide 17's demo script is a stub until the app exists: Code, log the final screen flow here so chat can script it. Slide 17 promises five models side by side and gate weights per utterance.
 - 2026-10-26 (chat): Created branch, this file, `CLAUDE.md` and the session hooks. Next for Code: build
   the demo skeleton with TF-IDF live + neural loaders that activate when checkpoints appear. Next for
   chat: slides 15–17 and script, cut to fit the 10-minute cap.
