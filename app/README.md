@@ -18,7 +18,7 @@ Runs on a laptop CPU. No GPU, no network needed once data and checkpoints are lo
 | Results tab (all charts and the table) | nothing — reads `outputs/results_summary.csv` |
 | Example dialogues and "write your own" | nothing |
 | MELD / EmoryNLP test-set dialogues with gold labels | nothing — falls back to the committed `outputs/runs/<ds>_tfidf_lr/predictions_test.csv` |
-| **TF-IDF + LR live predictions** | `python prepare_data.py` once (training data). The app then re-runs the configured grid from `models/tfidf_lr.py` on first use (same dev selection as the reported baseline) and caches `model.joblib` in `outputs/demo_cache/` |
+| **TF-IDF + LR live predictions** | `python prepare_data.py` once (training data), then `python -m app.warm_cache` (re-runs the configured grid from `models/tfidf_lr.py`, ~1–2 min per dataset on a laptop, longer for DailyDialog; cached in `outputs/demo_cache/`). Without the warm-up the app trains on first use behind a spinner. Reproduces the committed baseline exactly (identical MELD and EmoryNLP test predictions). |
 | Neural models (single, concat, fixed, adaptive) | their checkpoints in `outputs/runs/` + the DistilBERT files from `prepare_data.py` |
 
 Anything missing is listed in the sidebar and the 🔧 Models tab with the reason; the rest of the app keeps working.
