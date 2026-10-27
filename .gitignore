@@ -10,3 +10,5 @@ outputs/runs/**/checkpoints/
 outputs/smoke/
 *.pt
 *.joblib
+outputs/demo_cache/
+*.tgz

@@ -18,3 +18,7 @@ pytest==8.3.3
 ipykernel==6.29.5
 nbconvert==7.16.4
 nbformat==5.10.4
+# app/ Streamlit demo (pyarrow pinned: newer releases need NumPy 2, which conflicts with numpy==1.26.4)
+streamlit==1.40.2
+plotly==5.24.1
+pyarrow==18.1.0
