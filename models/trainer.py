@@ -199,7 +199,19 @@ def train_one_lr(config: dict, lr: float, data: RunData, collator: Collator, dev
     steps_per_epoch = math.ceil(len(data.items["train"]) / tcfg["batch_size"])
     total_steps = steps_per_epoch * tcfg["epochs"]
     scheduler = get_linear_schedule_with_warmup(optimizer, int(tcfg.get("warmup_ratio", 0.1) * total_steps), total_steps)
-    scaler = torch.amp.GradScaler("cuda", enabled=dtype == torch.float16)
+    scaler_enabled = dtype == torch.float16
+
+    if hasattr(torch, "amp") and hasattr(torch.amp, "GradScaler"):
+        # Newer PyTorch versions
+        scaler = torch.amp.GradScaler(
+            "cuda",
+            enabled=scaler_enabled,
+        )
+    else:
+        # Older PyTorch versions
+        scaler = torch.cuda.amp.GradScaler(
+            enabled=scaler_enabled,
+        )
 
     history: List[dict] = []
     best_f1, bad_epochs, start_epoch = -1.0, 0, 1

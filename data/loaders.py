@@ -1,20 +1,19 @@
-"""Loaders that turn the official MELD / EmoryNLP files into one unified record format.
+
+"""Loaders that turn official MELD / EmoryNLP / DailyDialog files into one unified record format.
 
 Every record is a dict with exactly the keys in ``RECORD_FIELDS``:
 
-    dataset      "meld" | "emorynlp"
-    split        "train" | "dev" | "test"   (official splits, never re-drawn)
-    dialogue_id  MELD: "dia<Dialogue_ID>"; EmoryNLP: scene id, e.g. "s01_e15_c01"
-    utterance_id MELD: "dia<D>_utt<U>" (original ids, gaps kept); EmoryNLP: original id
+    dataset      "meld" | "emorynlp" | "dailydialog"
+    split        "train" | "dev" | "test" (official splits, never re-drawn)
+    dialogue_id  stable dialogue identifier within the dataset split
+    utterance_id stable utterance identifier
     turn_index   0-based chronological position inside the dialogue
-    speaker_ids  list[str]; multi-speaker utterances keep every speaker
-    text         transcript with only outer whitespace stripped (punctuation,
-                 casing and negation untouched)
+    speaker_ids  list[str]; multi-speaker utterances keep every known speaker
+    text         transcript with only outer whitespace stripped
     label        lower-cased gold emotion (training/evaluation target only)
 
-``turn_index`` is an addition to the fields listed in the proposal: MELD utterance
-ids have gaps where the authors dropped utterances, so an explicit position makes the
-chronological order unambiguous for context construction.
+DailyDialog does not provide explicit speaker IDs in its standard text release,
+so its records use an empty speaker_ids list rather than inventing speakers.
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ from typing import Dict, Iterable, List
 
 import pandas as pd
 
-DATASETS = ("meld", "emorynlp")
+DATASETS = ("meld", "emorynlp", "dailydialog")
 SPLITS = ("train", "dev", "test")
 
 RECORD_FIELDS = (
@@ -43,6 +42,10 @@ RECORD_FIELDS = (
 LABELS: Dict[str, List[str]] = {
     "meld": ["anger", "disgust", "fear", "joy", "neutral", "sadness", "surprise"],
     "emorynlp": ["joyful", "mad", "neutral", "peaceful", "powerful", "sad", "scared"],
+    "dailydialog": [
+        "anger", "disgust", "fear", "happiness",
+        "no_emotion", "sadness", "surprise",
+    ],
 }
 
 RAW_FILES: Dict[str, Dict[str, str]] = {
@@ -56,15 +59,32 @@ RAW_FILES: Dict[str, Dict[str, str]] = {
         "dev": "emotion-detection-dev.json",
         "test": "emotion-detection-tst.json",
     },
+    "dailydialog": {
+        "train": "dialogues_train.txt",
+        "dev": "dialogues_validation.txt",
+        "test": "dialogues_test.txt",
+    },
 }
 
-# Published utterance counts from the proposal; checked during the data audit.
+# Published utterance counts; checked during the data audit.
 EXPECTED_COUNTS: Dict[str, Dict[str, int]] = {
     "meld": {"train": 9989, "dev": 1109, "test": 2610},
     "emorynlp": {"train": 9934, "dev": 1344, "test": 1328},
+    "dailydialog": {"train": 87170, "dev": 8069, "test": 7740},
 }
 
 _MELD_COLUMNS = ("Utterance", "Speaker", "Emotion", "Dialogue_ID", "Utterance_ID")
+
+# DailyDialog's published integer emotion IDs.
+_DAILYDIALOG_EMOTION_LABELS = {
+    0: "no_emotion",
+    1: "anger",
+    2: "disgust",
+    3: "fear",
+    4: "happiness",
+    5: "sadness",
+    6: "surprise",
+}
 
 
 def label_to_id(dataset: str) -> Dict[str, int]:
@@ -108,7 +128,11 @@ def load_meld_split(path: Path, split: str) -> List[dict]:
                     "turn_index": turn,
                     "speaker_ids": parse_meld_speakers(row.Speaker),
                     "text": row.Utterance.strip(),
-                    "label": _check_label("meld", row.Emotion.strip().lower(), f"{path} dia{dia}_utt{row.utt_num}"),
+                    "label": _check_label(
+                        "meld",
+                        row.Emotion.strip().lower(),
+                        f"{path} dia{dia}_utt{row.utt_num}",
+                    ),
                 }
             )
     return records
@@ -141,13 +165,134 @@ def load_emorynlp_split(path: Path, split: str) -> List[dict]:
                         "turn_index": turn,
                         "speaker_ids": speakers,
                         "text": utt["transcript"].strip(),
-                        "label": _check_label("emorynlp", utt["emotion"].strip().lower(), f"{path} {utt['utterance_id']}"),
+                        "label": _check_label(
+                            "emorynlp",
+                            utt["emotion"].strip().lower(),
+                            f"{path} {utt['utterance_id']}",
+                        ),
                     }
                 )
     return records
 
 
-_LOADERS = {"meld": load_meld_split, "emorynlp": load_emorynlp_split}
+def load_dailydialog_split(path: Path, split: str) -> List[dict]:
+    """Load DailyDialog text and its matching emotion-label file.
+
+    The two files are expected in the same directory. For example:
+        dialogues_train.txt
+        dialogues_emotion_train.txt
+
+    Each line represents one dialogue. Utterances are separated by "__eou__";
+    the corresponding emotion line contains one integer label per utterance.
+    """
+    path = Path(path)
+    emotion_path = path.with_name(
+        path.name.replace("dialogues_", "dialogues_emotion_", 1)
+    )
+
+    if not path.exists():
+        raise FileNotFoundError(path)
+    if not emotion_path.exists():
+        raise FileNotFoundError(emotion_path)
+
+    dialogue_lines = path.read_text(encoding="utf-8").splitlines()
+    emotion_lines = emotion_path.read_text(encoding="utf-8").splitlines()
+
+    if len(dialogue_lines) != len(emotion_lines):
+        raise ValueError(
+            f"{path}: dialogue/emotion line-count mismatch "
+            f"({len(dialogue_lines)} vs {len(emotion_lines)})"
+        )
+
+    records = []
+
+    for dialogue_idx, (dialogue_line, emotion_line) in enumerate(
+        zip(dialogue_lines, emotion_lines), start=1
+    ):
+        dialogue_id = f"dd_{split}_{dialogue_idx:05d}"
+
+        # __eou__ separates utterances. Remove an optional trailing delimiter.
+        utterances = [
+            part.strip() for part in dialogue_line.strip().split("__eou__")
+        ]
+        if utterances and not utterances[-1]:
+            utterances.pop()
+
+        if not utterances or any(not text for text in utterances):
+            raise ValueError(
+                f"{path}: empty utterance in dialogue {dialogue_id}"
+            )
+
+        try:
+            emotion_ids = [int(value) for value in emotion_line.split()]
+        except ValueError as exc:
+            raise ValueError(
+                f"{emotion_path}: invalid emotion ID in dialogue {dialogue_id}"
+            ) from exc
+
+        if len(utterances) != len(emotion_ids):
+            # Known anomaly in the original DailyDialog training split:
+            # dialogue 7852 has 12 text utterances but only 11 labels.
+            # The published training split contains 87,170 utterances.
+            # Do not invent a label for the unmatched final text utterance.
+            known_extra_turn = (
+                split == "train"
+                and dialogue_idx == 7852
+                and len(utterances) == 12
+                and len(emotion_ids) == 11
+                and all(label_id == 0 for label_id in emotion_ids)
+                and utterances[-1].strip() == "OK , let's go and ask ."
+            )
+
+            if known_extra_turn:
+                print(
+                    "WARNING: DailyDialog train dialogue 7852 has "
+                    "12 utterances but 11 labels. Excluding the final "
+                    "unlabelled utterance: "
+                    f"{utterances[-1]!r}"
+                )
+                utterances = utterances[:len(emotion_ids)]
+            else:
+                raise ValueError(
+                    f"{dialogue_id}: {len(utterances)} utterances but "
+                    f"{len(emotion_ids)} emotion labels"
+                )
+
+        for turn_idx, (text, emotion_id) in enumerate(
+            zip(utterances, emotion_ids)
+        ):
+            if emotion_id not in _DAILYDIALOG_EMOTION_LABELS:
+                raise ValueError(
+                    f"{emotion_path}: invalid emotion ID {emotion_id} in "
+                    f"{dialogue_id}, turn {turn_idx}"
+                )
+
+            label = _DAILYDIALOG_EMOTION_LABELS[emotion_id]
+            records.append(
+                {
+                    "dataset": "dailydialog",
+                    "split": split,
+                    "dialogue_id": dialogue_id,
+                    "utterance_id": f"{dialogue_id}_utt{turn_idx}",
+                    "turn_index": turn_idx,
+                    "speaker_ids": [],
+                    "text": text,
+                    "label": _check_label(
+                        "dailydialog",
+                        label,
+                        f"{dialogue_id}, turn {turn_idx}",
+                    ),
+                }
+            )
+
+    return records
+
+
+_LOADERS = {
+    "meld": load_meld_split,
+    "emorynlp": load_emorynlp_split,
+    "dailydialog": load_dailydialog_split,
+}
 
 
 def raw_path(raw_dir: Path, dataset: str, split: str) -> Path:
