@@ -22,7 +22,7 @@ Runs on a laptop CPU. No GPU, no network needed once data and checkpoints are lo
 | Neural models, live on any dialogue | their checkpoints in `outputs/runs/` + the DistilBERT files from `prepare_data.py` |
 | Neural models on test-set dialogues only (💾) | just the run's `predictions_test.csv` (+ `fusion_weights_test.csv` for fusion models) in `outputs/runs/<run>/`: the app replays the cluster's exact outputs. A checkpoint, when present, takes over |
 
-Anything missing is listed in the sidebar and the 🔧 Models tab with the reason; the rest of the app keeps working.
+Models that cannot run are left out of “Models to compare” and listed under Model status (sidebar) and the 🔧 Models tab with the reason; the rest of the app keeps working. Maintainer instructions live only here, not in the app.
 
 ## Switching on a neural model
 

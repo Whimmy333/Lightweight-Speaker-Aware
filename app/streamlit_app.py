@@ -135,6 +135,8 @@ def public_note(s: core.ModelStatus) -> str:
         return f"could not run on this dialogue ({s.note})"
     if s.model == "tfidf_lr":
         return "needs the prepared dataset"
+    if s.spec is not None and s.spec.dataset == "meld":
+        return "not included in this demo (only the four main MELD runs were exported)"
     return "not included in this demo (trained checkpoints exported for MELD only)"
 
 
@@ -180,11 +182,14 @@ st.sidebar.markdown(f"History turns **k = {k}** · seed **{seed}**  \n"
                     "k = 1 and 5 are compared in the 📊 Results tab.</span>", unsafe_allow_html=True)
 
 statuses = {m: core.model_status(dataset, m, k, seed) for m in models_k}
-default_models = [m for m in core.MODEL_ORDER if m in statuses and not m.endswith("_merged")] or list(statuses)
+# Only offer models that can produce something here; the rest are listed under Model status with the reason.
+offered = [m for m, s in statuses.items() if s.usable or s.state == "saved"]
+default_models = [m for m in core.MODEL_ORDER if m in offered and not m.endswith("_merged")] or offered
 if dataset == "dailydialog":  # no speaker IDs: the merged variants are the fusion models
-    default_models = [m for m in ("tfidf_lr", "single", "concat", "fixed_merged", "adaptive_merged") if m in statuses]
-chosen = st.sidebar.multiselect("Models to compare", list(statuses), default=default_models,
-                                format_func=lambda m: core.MODEL_INFO[m].label)
+    default_models = [m for m in ("tfidf_lr", "single", "concat", "fixed_merged", "adaptive_merged") if m in offered]
+chosen = st.sidebar.multiselect("Models to compare", offered, default=default_models,
+                                format_func=lambda m: core.MODEL_INFO[m].label,
+                                key=f"models_{dataset}")
 
 st.sidebar.markdown("**Model status**")
 for m, s in statuses.items():
@@ -332,15 +337,15 @@ with tab_demo:
         st.subheader("2 · Where does each prediction look?")
         if not fusion:
             fusion_keys = [m for m in statuses if m in ("fixed", "adaptive", "fixed_merged", "adaptive_merged")]
-            if not any(m in chosen for m in fusion_keys):
+            if not any(m in offered for m in fusion_keys):
+                st.info(f"The fusion models for {core.DATASET_NAMES[dataset]} are not included in this demo. "
+                        "Switch the dataset to MELD to see the learned weights.")
+            elif not any(m in chosen for m in fusion_keys):
                 st.info("Select Fixed or Adaptive fusion under “Models to compare” to see, for every line, how "
                         "much each prediction relies on the current utterance, the same speaker's earlier turns "
                         "and the other speakers' turns.")
-            elif any(s.state in ("error", "saved") for s in unavailable if s.model in fusion_keys):
-                st.info("The selected fusion models could not run on this dialogue (reason above).")
             else:
-                st.info(f"The fusion models for {core.DATASET_NAMES[dataset]} are not included in this demo. "
-                        "Switch the dataset to MELD to see the learned weights.")
+                st.info("The selected fusion models could not run on this dialogue (reason above).")
         else:
             fcols = st.columns(len(fusion))
             ylab = [f"{i + 1}. {short(', '.join(r['speaker_ids']) or '?', 10)}: {short(r['text'], 34)}"
@@ -606,32 +611,13 @@ with tab_results:
 # ================================================================= model status
 
 with tab_status:
-    st.markdown(f"#### {core.DATASET_NAMES[dataset]} runs used by the demo (k={k}, seed {seed})")
+    st.markdown(f"#### {core.DATASET_NAMES[dataset]} models in this demo (k={k}, seed {seed})")
     rows = []
     for m, ks in models_k.items():
         for kk in [k if k in ks else ks[0]]:
             s = core.model_status(dataset, m, kk, seed)
-            rows.append({"": STATE_ICON[s.state],
-                         "model": core.MODEL_INFO[m].label, "k": kk, "run": s.spec.run_name if s.spec else "—",
-                         "status": s.note, "what it does": core.MODEL_INFO[m].blurb})
+            rows.append({"": STATE_ICON[s.state], "model": core.MODEL_INFO[m].label, "k": str(kk) if kk else "—",
+                         "in this demo": public_note(s), "what it does": core.MODEL_INFO[m].blurb})
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-    with st.expander("For maintainers: adding or updating models"):
-        st.markdown(
-            """
-    **Turning a neural model on.** Copy its run directory from the cluster into `outputs/runs/`; the app picks it up
-    on the next click, no restart needed. It needs the selected checkpoint (`lr_*/checkpoints/best.pt`, ~260 MB) and,
-    ideally, `best.json` and `config.yaml`. A lone `best.pt` dropped into `outputs/runs/<run_name>/` also works.
-    The DistilBERT tokenizer and architecture come from `data/pretrained/distilbert-base-uncased`
-    (created by `python prepare_data.py`).
-
-    **Only the CSVs?** If a run folder has `predictions_test.csv` (and `fusion_weights_test.csv` for fusion models) but no checkpoint, the model shows as 💾: its saved cluster outputs are replayed for Featured and Test set dialogues (exact predictions and weights), while typed dialogues need the checkpoint.
-    """
-        )
-        st.code(
-            "# on your laptop, from the repo root (replace USER and the project path)\n"
-            "rsync -av --include='*/' --include='best.json' --include='config.yaml' --include='best.pt' \\\n"
-            "      --include='predictions_test.csv' --include='fusion_weights_*.csv' --exclude='*' \\\n"
-            "      USER@<cluster-login>:<project>/outputs/runs/meld_adaptive_k3_s42 outputs/runs/",
-            language="bash",
-        )
-        st.caption("Checkpoints are git-ignored (`*.pt`); never commit them.")
+    st.caption("All neural models share one DistilBERT encoder and run on this laptop's CPU. "
+               "How to add or update models: see app/README.md.")
