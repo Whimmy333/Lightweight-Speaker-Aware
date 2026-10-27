@@ -113,6 +113,20 @@ def test_neural_fusion_predictor(tmp_path, tiny_encoder, speaker_split):
     assert (pred.weights[~pred.avail] == 0).all()
 
 
+
+def test_prediction_round_trips_as_plain_data(tmp_path, tiny_encoder):
+    """The app caches vars(prediction), not the object (a hot-reloaded class would not pickle)."""
+    import pickle
+
+    ckpt = tmp_path / "best.pt"
+    _save_checkpoint(ckpt, tiny_encoder, {"type": "fusion", "fusion": {
+        "weighting": "learned", "speaker_split": True, "gate_hidden": 8}}, k=3)
+    pred = core.NeuralPredictor.load(ckpt).predict(core.dialogue_records(DIALOGUE, "meld"))
+    blob = pickle.dumps(vars(pred).copy())
+    assert b"app.core" not in blob
+    back = core.Prediction(**pickle.loads(blob))
+    assert back.pred == pred.pred and np.allclose(back.weights, pred.weights)
+
 def test_neural_single_predictor_matches_direct_forward(tmp_path, tiny_encoder):
     ckpt = tmp_path / "best.pt"
     model = _save_checkpoint(ckpt, tiny_encoder, {"type": "single"}, k=3).eval()
@@ -238,3 +252,29 @@ def test_checkpoint_wins_over_saved_csvs(tmp_path, tiny_encoder, monkeypatch):
         "weighting": "learned", "speaker_split": True, "gate_hidden": 8}}, k=3)
     monkeypatch.setattr(core, "ENCODER_DIR", core.Path(tiny_encoder))
     assert core.model_status("meld", "adaptive", 3, 42, **kw).state == "ready"
+
+
+def test_templates_are_unlabelled():
+    from app.examples import TEMPLATES, template_text
+
+    for name, turns in TEMPLATES.items():
+        assert all(len(t) == 2 for t in turns), name  # never scored against our own readings
+        recs = core.dialogue_records(core.parse_dialogue(template_text(name)), "meld")
+        assert [r["text"] for r in recs] == [t for _, t in turns] and all(r["label"] is None for r in recs)
+
+
+def test_featured_descriptions_hold():
+    """The featured blurbs describe specific model behaviour; re-check it against the live checkpoints."""
+    from app.examples import FEATURED
+
+    dialogues = core.load_test_dialogues("meld")
+    for feat in FEATURED["meld"]:
+        recs = dialogues[feat["dialogue_id"]]
+        line = feat["line"] - 1
+        assert f"**{recs[line]['label']}**" in feat["blurb"]  # the gold label the blurb names
+        for model, want in feat["expect"].items():
+            status = core.model_status("meld", model, core.DEMO_K, core.DEMO_SEED)
+            if status.state != "ready":
+                pytest.skip(f"{model} checkpoint not on this machine")
+            loader = core.TfidfPredictor.load if model == "tfidf_lr" else core.NeuralPredictor.load
+            assert loader(status.checkpoint).predict(recs).pred[line] == want, (feat["dialogue_id"], model)

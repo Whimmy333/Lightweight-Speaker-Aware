@@ -11,6 +11,7 @@ import html
 import json
 import random
 import sys
+import traceback
 from pathlib import Path
 
 import numpy as np
@@ -21,7 +22,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app import core  # noqa: E402
-from app.examples import EXAMPLES  # noqa: E402
+from app.examples import FEATURED, TEMPLATES, template_text  # noqa: E402
 from data.loaders import LABELS  # noqa: E402
 
 st.set_page_config(page_title="When does context help?", page_icon="💬", layout="wide")
@@ -40,7 +41,7 @@ EMOTION_COLOR = {
     "joy": "#eda100", "joyful": "#eda100", "happiness": "#eda100", "neutral": MUTED, "no_emotion": MUTED,
     "sadness": "#2a78d6", "sad": "#2a78d6", "surprise": "#eb6834", "peaceful": "#1baf7a", "powerful": "#e87ba4",
 }
-STATE_ICON = {"ready": "🟢", "trainable": "🟡", "saved": "💾", "missing": "⏳"}
+STATE_ICON = {"ready": "🟢", "trainable": "🟡", "saved": "💾", "missing": "⏳", "error": "⚠️"}
 SEQ_BLUE = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
 
 st.markdown(
@@ -62,7 +63,7 @@ st.markdown(
   .ctx {border-left: 4px solid #c3c2b7; padding: 6px 10px; margin: 6px 0; background: rgba(11,11,11,.03);
         border-radius: 0 6px 6px 0;}
   .ctx .tag {font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;}
-  .status-ready {color: #006300;} .status-trainable {color: #8a5a00;} .status-missing {color: #898781;}
+  .status-ready {color: #006300;} .status-trainable {color: #8a5a00;} .status-missing {color: #898781;} .status-error {color: #b3261e;}
 </style>
 """,
     unsafe_allow_html=True,
@@ -89,8 +90,10 @@ def saved_predictor(status: core.ModelStatus) -> core.SavedPredictor:
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
-def predict_cached(kind: str, path: str, mtime: float, config_path: str, records_json: str) -> core.Prediction:
-    return load_predictor(kind, path, mtime, config_path).predict(json.loads(records_json))
+def predict_cached(kind: str, path: str, mtime: float, config_path: str, records_json: str) -> dict:
+    # Cache plain data, not the Prediction object: after Streamlit hot-reloads app/core.py the old class no
+    # longer pickles, which would make every new dialogue fail while cached ones still show.
+    return vars(load_predictor(kind, path, mtime, config_path).predict(json.loads(records_json))).copy()
 
 
 @st.cache_data(show_spinner=False)
@@ -116,8 +119,23 @@ def ensure_ready(status: core.ModelStatus) -> core.ModelStatus:
 def run_model(status: core.ModelStatus, records: list) -> core.Prediction:
     path = status.checkpoint
     with st.spinner(f"Loading {core.MODEL_INFO[status.model].label}…"):
-        return predict_cached(status.model, str(path), path.stat().st_mtime, str(status.spec.config_path),
-                              json.dumps(records))
+        return core.Prediction(**predict_cached(status.model, str(path), path.stat().st_mtime,
+                                                str(status.spec.config_path), json.dumps(records)))
+
+
+def public_note(s: core.ModelStatus) -> str:
+    """Short status line for the audience; file paths and maintainer hints stay in the Models tab."""
+    if s.state == "ready":
+        return "live (retrained here, same grid as the baseline)" if s.model == "tfidf_lr" else "live · trained checkpoint loaded"
+    if s.state == "trainable":
+        return "trains on first use (about 1–2 min, then cached)"
+    if s.state == "saved":
+        return "saved test-set outputs only"
+    if s.state == "error":
+        return f"could not run on this dialogue ({s.note})"
+    if s.model == "tfidf_lr":
+        return "needs the prepared dataset"
+    return "not included in this demo (trained checkpoints exported for MELD only)"
 
 
 # ---------------------------------------------------------------- small render helpers
@@ -158,7 +176,7 @@ k = core.DEMO_K if core.DEMO_K in {kk for ks in models_k.values() for kk in ks} 
     (kk for ks in models_k.values() for kk in ks), default=0)
 seed = core.DEMO_SEED
 st.sidebar.markdown(f"History turns **k = {k}** · seed **{seed}**  \n"
-                    "<span style='font-size:.8rem;color:#52514e'>The context models see the 3 previous turns. "
+                    f"<span style='font-size:.8rem;color:#52514e'>The context models see the {k} previous turns. "
                     "k = 1 and 5 are compared in the 📊 Results tab.</span>", unsafe_allow_html=True)
 
 statuses = {m: core.model_status(dataset, m, k, seed) for m in models_k}
@@ -173,7 +191,7 @@ for m, s in statuses.items():
     icon = STATE_ICON[s.state]
     kk = f" · k={s.k}" if s.k else ""
     st.sidebar.markdown(f"{icon} {core.MODEL_INFO[m].label}{kk}  \n"
-                        f"<span class='status-{s.state}' style='font-size:.8rem'>{html.escape(s.note)}</span>",
+                        f"<span class='status-{s.state}' style='font-size:.8rem'>{html.escape(public_note(s))}</span>",
                         unsafe_allow_html=True)
 if dataset == "dailydialog":
     st.sidebar.info("DailyDialog has no speaker IDs, so fusion uses current vs all history.")
@@ -187,23 +205,27 @@ tab_demo, tab_results, tab_status = st.tabs(["🗣️ Live demo", "📊 Results"
 
 with tab_demo:
     labels = LABELS[dataset]
+    dialogues = test_dialogues(dataset)
+    featured = [f for f in FEATURED.get(dataset, []) if f["dialogue_id"] in dialogues]
+    sources = (["Featured"] if featured else []) + ["Test set", "Write your own"]
     src_col, pick_col = st.columns([1, 3])
     with src_col:
-        source = st.radio("Dialogue", ["Example", "Test set", "Write your own"], horizontal=False)
+        source = st.radio("Dialogue", sources, key=f"src_{dataset}")
 
     records: list = []
+    focus = None  # 0-based line the featured description talks about
     with pick_col:
-        if source == "Example":
-            name = st.selectbox("Example dialogue", list(EXAMPLES))
-            turns = EXAMPLES[name]
-            if dataset != "meld":  # gold labels in the examples use the MELD label set
-                turns = [t[:2] for t in turns]
-            records = core.dialogue_records(turns, dataset, "example")
+        if source == "Featured":
+            pick = st.selectbox("Featured test-set dialogue", range(len(featured)), key=f"feat_{dataset}",
+                                format_func=lambda i: featured[i]["title"])
+            feat = featured[pick]
+            st.caption(feat["blurb"] + f" (`{feat['dialogue_id']}`; gold labels are the dataset's annotations.)")
+            records = [dict(r) for r in dialogues[feat["dialogue_id"]]]
+            focus = feat["line"] - 1
         elif source == "Test set":
-            dialogues = test_dialogues(dataset)
             if not dialogues:
                 st.info("The test split is not prepared on this machine. Run `python prepare_data.py`, "
-                        "or use an example / your own dialogue.")
+                        "or write your own dialogue.")
             else:
                 ids = [d for d, recs in dialogues.items() if 3 <= len(recs) <= 14]
                 key = f"dlg_{dataset}"
@@ -216,12 +238,19 @@ with tab_demo:
                         st.session_state[key] = random.choice(ids)
                 with c1:
                     did = st.selectbox(
-                        f"Test dialogue ({len(ids)} with 3–14 turns)", ids, key=key,
+                        f"Official test-set dialogue ({len(ids)} with 3–14 turns)", ids, key=key,
                         format_func=lambda d: f"{d} · {len(dialogues[d])} turns · “{short(dialogues[d][0]['text'], 60)}”")
                 records = [dict(r) for r in dialogues[did]]
         else:
-            default = "\n".join(f"{s}: {t}" for s, t, *_ in EXAMPLES["“Fine.” after an argument"])
-            text = st.text_area("One utterance per line, as `Speaker: text`", default, height=170)
+            def _load_template():
+                st.session_state["custom_text"] = template_text(st.session_state["template"])
+
+            st.selectbox("Start from a template", list(TEMPLATES), key="template", on_change=_load_template,
+                         help="Hand-written pairs that end on the same line after different context.")
+            if "custom_text" not in st.session_state:
+                _load_template()
+            text = st.text_area("One utterance per line, as `Speaker: text`. Edit freely; your own dialogues have "
+                                "no gold label, so nothing is scored.", key="custom_text", height=170)
             records = core.dialogue_records(core.parse_dialogue(text), dataset, "custom")
 
     if not records:
@@ -240,14 +269,15 @@ with tab_demo:
         if s.state == "saved":  # cluster CSVs only: replay them for official test-set dialogues
             try:
                 sp = saved_predictor(s)
-                if source == "Test set" and sp.covers(records):
+                if source in ("Featured", "Test set") and sp.covers(records):
                     preds[m] = sp.predict(records)
                     saved_models.add(m)
                 else:
                     unavailable.append(core.ModelStatus(s.spec, m, s.k, "saved",
-                                                        "only saved test-set predictions here; pick a Test set dialogue"))
+                                                        "saved test-set outputs only; pick a Featured or Test set dialogue"))
             except Exception as exc:
-                unavailable.append(core.ModelStatus(s.spec, m, s.k, "missing", f"saved CSVs unreadable: {exc}"))
+                traceback.print_exc()
+                unavailable.append(core.ModelStatus(s.spec, m, s.k, "error", f"saved outputs unreadable: {type(exc).__name__}"))
             continue
         if not s.usable:
             unavailable.append(s)
@@ -256,8 +286,9 @@ with tab_demo:
             s = ensure_ready(s)
             statuses[m] = s
             preds[m] = run_model(s, records)
-        except Exception as exc:  # keep the demo up if one checkpoint is broken
-            unavailable.append(core.ModelStatus(s.spec, m, s.k, "missing", f"failed to load: {exc}"))
+        except Exception as exc:  # keep the demo up if one checkpoint is broken; say so honestly
+            traceback.print_exc()
+            unavailable.append(core.ModelStatus(s.spec, m, s.k, "error", f"{type(exc).__name__}: {exc}"[:160]))
 
     gold_known = any(r.get("label") in labels for r in records)
 
@@ -290,16 +321,26 @@ with tab_demo:
                            "laptop); predictions and weights are exactly what the trained model produced")
             st.caption(f"Whole-dialogue CPU time incl. tokenisation: {timing}")
         if unavailable:
-            st.caption("Not shown: " + "; ".join(f"**{core.MODEL_INFO[s.model].label}** — {s.note}" for s in unavailable)
-                       + ". See the 🔧 Models tab.")
+            by_reason: dict = {}
+            for s in unavailable:
+                by_reason.setdefault(public_note(s), []).append(f"**{core.MODEL_INFO[s.model].label}**")
+            st.caption("Not shown: " + "; ".join(f"{', '.join(names)}: {reason}" for reason, names in by_reason.items())
+                       + ".")
 
         # ---- 2. fusion weights
         fusion = {m: p for m, p in preds.items() if p.weights is not None}
         st.subheader("2 · Where does each prediction look?")
         if not fusion:
-            st.info("Fusion weights appear here once a fusion model checkpoint (Fixed / Adaptive) is in "
-                    "`outputs/runs/`. Adaptive fusion learns, per utterance, how much to trust the current "
-                    "utterance, the same speaker's earlier turns and the other speakers' turns.")
+            fusion_keys = [m for m in statuses if m in ("fixed", "adaptive", "fixed_merged", "adaptive_merged")]
+            if not any(m in chosen for m in fusion_keys):
+                st.info("Select Fixed or Adaptive fusion under “Models to compare” to see, for every line, how "
+                        "much each prediction relies on the current utterance, the same speaker's earlier turns "
+                        "and the other speakers' turns.")
+            elif any(s.state in ("error", "saved") for s in unavailable if s.model in fusion_keys):
+                st.info("The selected fusion models could not run on this dialogue (reason above).")
+            else:
+                st.info(f"The fusion models for {core.DATASET_NAMES[dataset]} are not included in this demo. "
+                        "Switch the dataset to MELD to see the learned weights.")
         else:
             fcols = st.columns(len(fusion))
             ylab = [f"{i + 1}. {short(', '.join(r['speaker_ids']) or '?', 10)}: {short(r['text'], 34)}"
@@ -328,7 +369,8 @@ with tab_demo:
 
         # ---- 3. inspector
         st.subheader("3 · Look inside one utterance")
-        idx = st.select_slider("Utterance", options=list(range(len(records))), value=len(records) - 1,
+        idx = st.select_slider("Utterance", options=list(range(len(records))),
+                               value=focus if focus is not None and focus < len(records) else len(records) - 1,
                                format_func=lambda i: f"{i + 1}. {short(records[i]['text'], 30)}")
         left, right = st.columns([2, 3])
         with left:
@@ -389,9 +431,11 @@ with tab_results:
         fusion_model = "adaptive_merged" if dataset == "dailydialog" else "adaptive"
         adap = dk[dk["model"] == fusion_model]
 
+        st.caption("Test Macro-F1 on the official test split. Neural models: mean over seeds 42/43/44; "
+                   "TF-IDF: one deterministic run.")
         t1, t2, t3, t4 = st.columns(4)
         if not tfidf.empty:
-            t1.metric("TF-IDF + LR test Macro-F1", f"{tfidf['test_macro_f1_mean'].iloc[0]:.3f}")
+            t1.metric("TF-IDF + LR", f"{tfidf['test_macro_f1_mean'].iloc[0]:.3f}")
         if not single.empty:
             t2.metric("Single DistilBERT", f"{single['test_macro_f1_mean'].iloc[0]:.3f}",
                       help="Mean over 3 seeds, current utterance only")
@@ -401,8 +445,11 @@ with tab_results:
             a = adap.iloc[0]
             delta = (a["test_macro_f1_mean"] - single["test_macro_f1_mean"].iloc[0]) if not single.empty else None
             t4.metric(f"{a['model_label']} (k={int(a['k'])})", f"{a['test_macro_f1_mean']:.3f}",
-                      f"{delta:+.3f} vs single" if delta is not None else None)
-            t4.caption(f"{a['latency_ms_mean']:.1f} ms per utterance end to end (batch 1, training machine)")
+                      f"{delta:+.3f} vs Single" if delta is not None else None, delta_color="off")
+            if delta is not None:
+                spread = max(a["test_macro_f1_std"], single["test_macro_f1_std"].iloc[0])
+                if abs(delta) < spread:
+                    t4.caption(f"Within the seed-to-seed spread (±{spread:.3f}): treat as a tie with Single.")
 
         c1, c2 = st.columns(2)
         with c1:
@@ -553,7 +600,8 @@ with tab_results:
                 "latency_ms_mean": "latency ms"})
             st.dataframe(show.style.format(precision=3, na_rep="—"), hide_index=True, use_container_width=True)
             st.caption("Source: outputs/results_summary.csv. TF-IDF is deterministic (one run); neural rows are "
-                       "means over seeds 42/43/44. Latency is end to end, batch 1.")
+                       "means over seeds 42/43/44. Latency is end to end at batch 1: neural models on the cluster "
+                       "GPU, TF-IDF on CPU, so the two are not directly comparable.")
 
 # ================================================================= model status
 
@@ -567,22 +615,23 @@ with tab_status:
                          "model": core.MODEL_INFO[m].label, "k": kk, "run": s.spec.run_name if s.spec else "—",
                          "status": s.note, "what it does": core.MODEL_INFO[m].blurb})
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-    st.markdown(
-        """
-**Turning a neural model on.** Copy its run directory from the cluster into `outputs/runs/`; the app picks it up
-on the next click, no restart needed. It needs the selected checkpoint (`lr_*/checkpoints/best.pt`, ~260 MB) and,
-ideally, `best.json` and `config.yaml`. A lone `best.pt` dropped into `outputs/runs/<run_name>/` also works.
-The DistilBERT tokenizer and architecture come from `data/pretrained/distilbert-base-uncased`
-(created by `python prepare_data.py`).
+    with st.expander("For maintainers: adding or updating models"):
+        st.markdown(
+            """
+    **Turning a neural model on.** Copy its run directory from the cluster into `outputs/runs/`; the app picks it up
+    on the next click, no restart needed. It needs the selected checkpoint (`lr_*/checkpoints/best.pt`, ~260 MB) and,
+    ideally, `best.json` and `config.yaml`. A lone `best.pt` dropped into `outputs/runs/<run_name>/` also works.
+    The DistilBERT tokenizer and architecture come from `data/pretrained/distilbert-base-uncased`
+    (created by `python prepare_data.py`).
 
-**Only the CSVs?** If a run folder has `predictions_test.csv` (and `fusion_weights_test.csv` for fusion models) but no checkpoint, the model shows as 💾: its saved cluster outputs are replayed for **Test set** dialogues (exact predictions and weights), while examples and typed dialogues need the checkpoint.
-"""
-    )
-    st.code(
-        "# on your laptop, from the repo root (replace USER and the project path)\n"
-        "rsync -av --include='*/' --include='best.json' --include='config.yaml' --include='best.pt' \\\n"
-        "      --include='predictions_test.csv' --include='fusion_weights_*.csv' --exclude='*' \\\n"
-        "      USER@<cluster-login>:<project>/outputs/runs/meld_adaptive_k3_s42 outputs/runs/",
-        language="bash",
-    )
-    st.caption("Checkpoints are git-ignored (`*.pt`); never commit them.")
+    **Only the CSVs?** If a run folder has `predictions_test.csv` (and `fusion_weights_test.csv` for fusion models) but no checkpoint, the model shows as 💾: its saved cluster outputs are replayed for Featured and Test set dialogues (exact predictions and weights), while typed dialogues need the checkpoint.
+    """
+        )
+        st.code(
+            "# on your laptop, from the repo root (replace USER and the project path)\n"
+            "rsync -av --include='*/' --include='best.json' --include='config.yaml' --include='best.pt' \\\n"
+            "      --include='predictions_test.csv' --include='fusion_weights_*.csv' --exclude='*' \\\n"
+            "      USER@<cluster-login>:<project>/outputs/runs/meld_adaptive_k3_s42 outputs/runs/",
+            language="bash",
+        )
+        st.caption("Checkpoints are git-ignored (`*.pt`); never commit them.")
