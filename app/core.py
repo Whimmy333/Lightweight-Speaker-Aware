@@ -312,7 +312,7 @@ class NeuralPredictor:
         from models.batching import Collator
         from models.neural import build_model, input_mode
 
-        state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+        state = torch.load(checkpoint, map_location="cpu", weights_only=True)  # tensors + plain data only
         config = state.get("config")
         if config is None:
             with open(config_path, encoding="utf-8") as f:
