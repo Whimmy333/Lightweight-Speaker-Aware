@@ -174,13 +174,18 @@ class ModelStatus:
     spec: Optional[RunSpec]
     model: str
     k: int
-    state: str  # "ready" | "trainable" | "missing"
+    state: str  # "ready" | "trainable" | "saved" (test-set CSVs only) | "missing"
     note: str
     checkpoint: Optional[Path] = None
 
     @property
     def usable(self) -> bool:
         return self.state in ("ready", "trainable")
+
+
+def saved_predictions_path(run_dir: Path) -> Optional[Path]:
+    p = run_dir / "predictions_test.csv"
+    return p if p.exists() else None
 
 
 def tfidf_model_path(run_name: str, runs_dir: Path = RUNS_DIR, cache_dir: Path = CACHE_DIR) -> Optional[Path]:
@@ -204,16 +209,21 @@ def model_status(dataset: str, model: str, k: int, seed: int, *, configs_dir: Pa
         if processed_path(processed_dir, dataset, "train").exists():
             return ModelStatus(spec, model, 0, "trainable", "trains on first use (CPU, cached afterwards)")
         return ModelStatus(spec, model, 0, "missing", "no processed data; run `python prepare_data.py`")
-    ckpt = find_checkpoint(runs_dir / spec.run_name)
-    if ckpt is None:
-        return ModelStatus(spec, model, spec.k, "missing",
-                           f"no checkpoint in {_rel(runs_dir / spec.run_name)}/ (copy it from the cluster)")
+    run_dir = runs_dir / spec.run_name
+    ckpt = find_checkpoint(run_dir)
+    saved = saved_predictions_path(run_dir)
     with open(spec.config_path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
-    if encoder_dir_for(cfg) is None:
+    if ckpt is not None and encoder_dir_for(cfg) is not None:
+        return ModelStatus(spec, model, spec.k, "ready", f"checkpoint {_rel(ckpt)}", ckpt)
+    if saved is not None:  # no live model, but the cluster's test-set outputs are here
+        return ModelStatus(spec, model, spec.k, "saved",
+                           "saved test-set predictions only (no checkpoint): test-set dialogues only")
+    if ckpt is None:
         return ModelStatus(spec, model, spec.k, "missing",
-                           f"DistilBERT not found in {_rel(ENCODER_DIR)}; run `python prepare_data.py`", ckpt)
-    return ModelStatus(spec, model, spec.k, "ready", f"checkpoint {_rel(ckpt)}", ckpt)
+                           f"no checkpoint in {_rel(run_dir)}/ (copy it from the cluster)")
+    return ModelStatus(spec, model, spec.k, "missing",
+                       f"DistilBERT not found in {_rel(ENCODER_DIR)}; run `python prepare_data.py`", ckpt)
 
 
 def _rel(p: Path) -> str:
@@ -333,6 +343,87 @@ class NeuralPredictor:
             return Prediction(self.labels, probs, ms)
         w = out["weights"].float().numpy()
         return Prediction(self.labels, probs, ms, w, batch["avail"].numpy().astype(bool), SOURCE_NAMES[w.shape[1]])
+
+
+class SavedPredictor:
+    """Replays a run's saved test-set outputs (predictions_test.csv, fusion_weights_test.csv).
+
+    Used when a neural run's CSVs are available but its checkpoint is not. It can only answer for
+    utterances of the official test split, looked up by utterance_id; probabilities and fusion weights are
+    exactly what the trained model produced on the cluster.
+    """
+
+    def __init__(self, probs: pd.DataFrame, labels: List[str], k: int, weights: Optional[pd.DataFrame] = None):
+        self.probs = probs  # index utterance_id, columns = labels
+        self.labels = labels
+        self.k = k
+        self.weights = weights  # index utterance_id, columns = sources, plus avail_<source>
+
+    @classmethod
+    def load(cls, run_dir: Path, labels: List[str], k: int) -> "SavedPredictor":
+        pred = pd.read_csv(run_dir / "predictions_test.csv", dtype={"utterance_id": str})
+        prob_cols = [f"prob_{lab}" for lab in labels]
+        missing = [c for c in prob_cols if c not in pred.columns]
+        if missing:
+            raise ValueError(f"{run_dir}/predictions_test.csv lacks {missing}")
+        probs = pred.set_index("utterance_id")[prob_cols]
+        probs.columns = labels
+        weights = None
+        fw = run_dir / "fusion_weights_test.csv"
+        if fw.exists():
+            df = pd.read_csv(fw, dtype={"utterance_id": str}).set_index("utterance_id")
+            keys = ["current", "same", "other"] if df["source_mode"].iloc[0] == "speaker_split" else ["current", "history"]
+            weights = pd.DataFrame({name: df[f"w_{key}"] for key, name in zip(keys, SOURCE_NAMES[len(keys)])})
+            for key, name in zip(keys, SOURCE_NAMES[len(keys)]):
+                weights[f"avail_{name}"] = df[f"avail_{key}"].astype(bool)
+        return cls(probs, labels, k, weights)
+
+    def covers(self, records: Sequence[dict]) -> bool:
+        return all(r["utterance_id"] in self.probs.index for r in records)
+
+    def predict(self, records: Sequence[dict]) -> Prediction:
+        ids = [r["utterance_id"] for r in records]
+        pred = Prediction(self.labels, self.probs.loc[ids].to_numpy(dtype=float), float("nan"))
+        if self.weights is not None and all(i in self.weights.index for i in ids):
+            names = [c for c in self.weights.columns if not c.startswith("avail_")]
+            rows = self.weights.loc[ids]
+            pred.weights = rows[names].fillna(0.0).to_numpy(dtype=float)
+            pred.avail = rows[[f"avail_{n}" for n in names]].to_numpy(dtype=bool)
+            pred.source_names = names
+        return pred
+
+
+# ---------------------------------------------------------------- model size
+
+DISTILBERT_BASE_PARAMS = 66_362_880  # distilbert-base-uncased, checked against the local copy in tests
+DISTILBERT_HIDDEN = 768
+
+
+def added_parameters(model_cfg: dict, num_labels: int, hidden: int = DISTILBERT_HIDDEN) -> int:
+    """Trainable parameters a model adds on top of the shared encoder (mirrors models/neural.py)."""
+    head = hidden * num_labels + num_labels
+    if model_cfg["type"] != "fusion" or model_cfg["fusion"]["weighting"] != "learned":
+        return head
+    s = 3 if model_cfg["fusion"].get("speaker_split", True) else 2
+    g = model_cfg["fusion"].get("gate_hidden", 256)
+    return head + (s * hidden + s) * g + g + g * s + s
+
+
+def model_sizes(dataset: str, k: int = 3, configs_dir: Path = CONFIGS_DIR) -> pd.DataFrame:
+    """Per neural model: parameters added on top of the encoder, for the seed-42 run at k (or its only k)."""
+    specs = config_specs(dataset, configs_dir)
+    rows = []
+    for m in MODEL_ORDER:
+        spec = pick_spec(specs, m, k, 42)
+        if spec is None or m == "tfidf_lr":
+            continue
+        with open(spec.config_path, encoding="utf-8") as f:
+            mcfg = yaml.safe_load(f)["model"]
+        added = added_parameters(mcfg, len(LABELS[dataset]))
+        rows.append({"model": m, "k": spec.k, "added_params": added,
+                     "added_pct": added / DISTILBERT_BASE_PARAMS,
+                     "total_params": DISTILBERT_BASE_PARAMS + added})
+    return pd.DataFrame(rows)
 
 
 # ---------------------------------------------------------------- dialogues

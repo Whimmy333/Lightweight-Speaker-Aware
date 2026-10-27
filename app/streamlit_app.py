@@ -40,6 +40,7 @@ EMOTION_COLOR = {
     "joy": "#eda100", "joyful": "#eda100", "happiness": "#eda100", "neutral": MUTED, "no_emotion": MUTED,
     "sadness": "#2a78d6", "sad": "#2a78d6", "surprise": "#eb6834", "peaceful": "#1baf7a", "powerful": "#e87ba4",
 }
+STATE_ICON = {"ready": "🟢", "trainable": "🟡", "saved": "💾", "missing": "⏳"}
 SEQ_BLUE = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
 
 st.markdown(
@@ -75,6 +76,16 @@ def load_predictor(kind: str, path: str, mtime: float, config_path: str):
     if kind == "tfidf_lr":
         return core.TfidfPredictor.load(Path(path))
     return core.NeuralPredictor.load(Path(path), Path(config_path))
+
+
+@st.cache_resource(show_spinner=False)
+def load_saved(run_dir: str, mtime: float, dataset: str, k: int) -> core.SavedPredictor:
+    return core.SavedPredictor.load(Path(run_dir), LABELS[dataset], k)
+
+
+def saved_predictor(status: core.ModelStatus) -> core.SavedPredictor:
+    run_dir = core.RUNS_DIR / status.spec.run_name
+    return load_saved(str(run_dir), (run_dir / "predictions_test.csv").stat().st_mtime, status.spec.dataset, status.k)
 
 
 @st.cache_data(show_spinner=False, max_entries=256)
@@ -162,7 +173,7 @@ chosen = st.sidebar.multiselect("Models to compare", list(statuses), default=def
 
 st.sidebar.markdown("**Model status**")
 for m, s in statuses.items():
-    icon = {"ready": "🟢", "trainable": "🟡", "missing": "⏳"}[s.state]
+    icon = STATE_ICON[s.state]
     kk = f" · k={s.k}" if s.k else ""
     st.sidebar.markdown(f"{icon} {core.MODEL_INFO[m].label}{kk}  \n"
                         f"<span class='status-{s.state}' style='font-size:.8rem'>{html.escape(s.note)}</span>",
@@ -225,9 +236,22 @@ with tab_demo:
 
     # ---- run every selected, usable model
     preds: dict = {}
+    saved_models: set = set()
     unavailable = []
     for m in chosen if records else []:
         s = statuses[m]
+        if s.state == "saved":  # cluster CSVs only: replay them for official test-set dialogues
+            try:
+                sp = saved_predictor(s)
+                if source == "Test set" and sp.covers(records):
+                    preds[m] = sp.predict(records)
+                    saved_models.add(m)
+                else:
+                    unavailable.append(core.ModelStatus(s.spec, m, s.k, "saved",
+                                                        "only saved test-set predictions here; pick a Test set dialogue"))
+            except Exception as exc:
+                unavailable.append(core.ModelStatus(s.spec, m, s.k, "missing", f"saved CSVs unreadable: {exc}"))
+            continue
         if not s.usable:
             unavailable.append(s)
             continue
@@ -246,6 +270,7 @@ with tab_demo:
         head = "<th>#</th><th>Speaker</th><th>Utterance</th>" + ("<th>Gold</th>" if gold_known else "")
         for m, p in preds.items():
             kk = f" (k={statuses[m].k})" if statuses[m].k else ""
+            kk += " 💾" if m in saved_models else ""
             head += f"<th>{html.escape(core.MODEL_INFO[m].short)}{kk}</th>"
         rows = []
         for i, r in enumerate(records):
@@ -261,7 +286,11 @@ with tab_demo:
         st.markdown(f'<table class="dlg"><thead><tr>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table>',
                     unsafe_allow_html=True)
         if preds:
-            timing = " · ".join(f"{core.MODEL_INFO[m].short} {p.ms:.0f} ms" for m, p in preds.items())
+            timing = " · ".join(f"{core.MODEL_INFO[m].short} {p.ms:.0f} ms" for m, p in preds.items()
+                                if m not in saved_models) or "—"
+            if saved_models:
+                timing += (" · 💾 = replayed from the run's saved test-set outputs (checkpoint not on this "
+                           "laptop); predictions and weights are exactly what the trained model produced")
             st.caption(f"Whole-dialogue CPU time incl. tokenisation: {timing}")
         if unavailable:
             st.caption("Not shown: " + "; ".join(f"**{core.MODEL_INFO[s.model].label}** — {s.note}" for s in unavailable)
@@ -460,6 +489,64 @@ with tab_results:
             fig.update_yaxes(autorange="reversed")
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
+        # ---- how lightweight is it?
+        st.subheader("How lightweight is it?")
+        sizes = core.model_sizes(dataset, k)
+        lat = dk[dk["model"].isin(sizes["model"])][["model", "model_label", "k", "latency_ms_mean", "latency_ms_std"]]
+        gated = sizes[sizes["added_params"] == sizes["added_params"].max()].iloc[0]
+        gated_label = core.MODEL_INFO[gated["model"]].label
+
+        def lat_of(m):
+            row = lat[lat["model"] == m]
+            return float(row["latency_ms_mean"].iloc[0]) if not row.empty else None
+
+        l1, l2, l3 = st.columns(3)
+        l1.metric("Shared encoder (every neural model)", f"{core.DISTILBERT_BASE_PARAMS / 1e6:.1f}M params",
+                  help="One DistilBERT encodes the current utterance and every history turn; no second encoder.")
+        l2.metric(f"{gated_label} adds", f"{gated['added_params'] / 1e3:.0f}k params",
+                  f"+{gated['added_pct']:.2%} of the encoder", delta_color="off")
+        conc, gl = lat_of("concat"), lat_of(gated["model"])
+        if conc and gl:
+            l3.metric(f"Latency, {core.MODEL_INFO[gated['model']].short} vs Concat", f"{gl:.2f} vs {conc:.2f} ms",
+                      f"{gl / conc - 1:+.0%} per utterance", delta_color="inverse")
+        g1, g2 = st.columns(2)
+        with g1:
+            hi = sizes["added_params"] == sizes["added_params"].max()
+            labels_y = [core.MODEL_INFO[m].label for m in sizes["model"]]
+            fig = go.Figure(go.Bar(
+                x=sizes["added_params"] / 1e3, y=labels_y, orientation="h",
+                marker=dict(color=np.where(hi, HIGHLIGHT, DIM), line=dict(color="white", width=2)),
+                text=[f"{a / 1e3:,.1f}k ({p:.2%})" for a, p in zip(sizes["added_params"], sizes["added_pct"])],
+                textposition="outside", textfont=dict(color=INK_2, size=13), cliponaxis=False,
+                hovertemplate="<b>%{y}</b><br>%{x:,.1f}k parameters on top of the encoder<extra></extra>",
+            ))
+            base_layout(fig, 300, title=dict(text="Parameters added on top of the shared 66.4M encoder",
+                                             font=dict(size=16, color=INK)))
+            fig.update_xaxes(title_text="thousand parameters", range=[0, sizes["added_params"].max() / 1e3 * 1.35])
+            fig.update_yaxes(autorange="reversed")
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        with g2:
+            if not lat.empty:
+                hi = lat["model"] == gated["model"]
+                fig = go.Figure(go.Bar(
+                    x=lat["latency_ms_mean"], y=lat["model_label"], orientation="h",
+                    error_x=dict(type="data", array=lat["latency_ms_std"].fillna(0), color=MUTED, thickness=1.5, width=5),
+                    marker=dict(color=np.where(hi, HIGHLIGHT, DIM), line=dict(color="white", width=2)),
+                    text=[f"{v:.2f} ms" for v in lat["latency_ms_mean"]], textposition="inside",
+                    insidetextanchor="start", textfont=dict(color=np.where(hi, "white", INK).tolist(), size=13),
+                    hovertemplate="<b>%{y}</b><br>%{x:.2f} ms per utterance<extra></extra>",
+                ))
+                base_layout(fig, 300, title=dict(text=f"End-to-end latency per utterance at k={k}",
+                                                 font=dict(size=16, color=INK)))
+                fig.update_xaxes(title_text="ms (batch 1, mean ± std over seeds)",
+                                 range=[0, lat["latency_ms_mean"].max() * 1.3])
+                fig.update_yaxes(autorange="reversed")
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.caption("Lightweight in size, not in speed: the learned gate is a small feed-forward layer on top of one "
+                   "shared encoder, but encoding history turns separately makes it slower per utterance than "
+                   "Concat. Neural latencies were measured on the training GPU (NVIDIA A40, cluster); TF-IDF's "
+                   "CPU latency is not comparable and is left out.")
+
         with st.expander("Full results table"):
             show = d[["model_label", "k", "n_seeds", "dev_macro_f1_mean", "test_macro_f1_mean", "test_macro_f1_std",
                       "test_weighted_f1_mean", "test_accuracy_mean", "latency_ms_mean"]].rename(columns={
@@ -479,7 +566,7 @@ with tab_status:
     for m, ks in models_k.items():
         for kk in ks:
             s = core.model_status(dataset, m, kk, seed)
-            rows.append({"": {"ready": "🟢", "trainable": "🟡", "missing": "⏳"}[s.state],
+            rows.append({"": STATE_ICON[s.state],
                          "model": core.MODEL_INFO[m].label, "k": kk, "run": s.spec.run_name if s.spec else "—",
                          "status": s.note, "what it does": core.MODEL_INFO[m].blurb})
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
@@ -490,12 +577,14 @@ on the next click, no restart needed. It needs the selected checkpoint (`lr_*/ch
 ideally, `best.json` and `config.yaml`. A lone `best.pt` dropped into `outputs/runs/<run_name>/` also works.
 The DistilBERT tokenizer and architecture come from `data/pretrained/distilbert-base-uncased`
 (created by `python prepare_data.py`).
+
+**Only the CSVs?** If a run folder has `predictions_test.csv` (and `fusion_weights_test.csv` for fusion models) but no checkpoint, the model shows as 💾: its saved cluster outputs are replayed for **Test set** dialogues (exact predictions and weights), while examples and typed dialogues need the checkpoint.
 """
     )
     st.code(
         "# on your laptop, from the repo root (replace USER and the project path)\n"
         "rsync -av --include='*/' --include='best.json' --include='config.yaml' --include='best.pt' \\\n"
-        "      --include='fusion_weights_*.csv' --exclude='*' \\\n"
+        "      --include='predictions_test.csv' --include='fusion_weights_*.csv' --exclude='*' \\\n"
         "      USER@<cluster-login>:<project>/outputs/runs/meld_adaptive_k3_s42 outputs/runs/",
         language="bash",
     )

@@ -15,11 +15,12 @@ Runs on a laptop CPU. No GPU, no network needed once data and checkpoints are lo
 
 | Feature | Needs |
 |---|---|
-| Results tab (all charts and the table) | nothing — reads `outputs/results_summary.csv` |
+| Results tab (all charts, the “How lightweight is it?” panel and the table) | nothing — reads `outputs/results_summary.csv` and the configs |
 | Example dialogues and "write your own" | nothing |
 | MELD / EmoryNLP test-set dialogues with gold labels | nothing — falls back to the committed `outputs/runs/<ds>_tfidf_lr/predictions_test.csv` |
 | **TF-IDF + LR live predictions** | `python prepare_data.py` once (training data), then `python -m app.warm_cache` (re-runs the configured grid from `models/tfidf_lr.py`, ~1–2 min per dataset on a laptop, longer for DailyDialog; cached in `outputs/demo_cache/`). Without the warm-up the app trains on first use behind a spinner. Reproduces the committed baseline exactly (identical MELD and EmoryNLP test predictions). |
-| Neural models (single, concat, fixed, adaptive) | their checkpoints in `outputs/runs/` + the DistilBERT files from `prepare_data.py` |
+| Neural models, live on any dialogue | their checkpoints in `outputs/runs/` + the DistilBERT files from `prepare_data.py` |
+| Neural models on test-set dialogues only (💾) | just the run's `predictions_test.csv` (+ `fusion_weights_test.csv` for fusion models) in `outputs/runs/<run>/`: the app replays the cluster's exact outputs. A checkpoint, when present, takes over |
 
 Anything missing is listed in the sidebar and the 🔧 Models tab with the reason; the rest of the app keeps working.
 
@@ -32,8 +33,8 @@ click, so no restart is needed. It looks for the checkpoint in this order:
 2. `outputs/runs/<run_name>/best.pt` (a single file dropped in by hand);
 3. `lr_*/checkpoints/best.pt` (if two learning rates kept one, the higher dev Macro-F1 in `epoch_metrics.jsonl`).
 
-Wanted for the demo (MELD, seed 42): `meld_single_s42`, `meld_concat_k{1,3,5}_s42`, `meld_fixed_k{1,3,5}_s42`,
-`meld_adaptive_k{1,3,5}_s42`. Checkpoints are ~260 MB each and git-ignored; never commit them.
+Wanted for the demo (MELD, seed 42, k=3 as agreed by the team): `meld_single_s42`, `meld_concat_k3_s42`,
+`meld_fixed_k3_s42`, `meld_adaptive_k3_s42`. Checkpoints are ~260 MB each and git-ignored; never commit them.
 
 ```bash
 rsync -av --include='*/' --include='best.json' --include='config.yaml' --include='best.pt' \

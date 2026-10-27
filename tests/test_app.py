@@ -159,3 +159,82 @@ def test_test_dialogues_fall_back_to_predictions_csv(tmp_path):
 def test_committed_test_dialogues_load():
     dialogues = core.load_test_dialogues("meld", core.ROOT / "no_processed_here")
     assert sum(len(v) for v in dialogues.values()) == 2610  # MELD test utterances
+
+
+@pytest.mark.parametrize("model_cfg", [
+    {"type": "single"},
+    {"type": "fusion", "fusion": {"weighting": "equal", "speaker_split": True, "gate_hidden": 8}},
+    {"type": "fusion", "fusion": {"weighting": "learned", "speaker_split": True, "gate_hidden": 8}},
+    {"type": "fusion", "fusion": {"weighting": "learned", "speaker_split": False, "gate_hidden": 8}},
+])
+def test_added_parameters_match_models(tiny_encoder, model_cfg):
+    m = build_model({"pretrained": tiny_encoder, "dropout": 0.0, **model_cfg}, 7)
+    added = sum(p.numel() for p in m.parameters()) - sum(p.numel() for p in m.encoder.parameters())
+    assert core.added_parameters(model_cfg, 7, hidden=m.encoder.hidden_size) == added
+
+
+def test_model_sizes_meld():
+    sizes = core.model_sizes("meld", 3).set_index("model")["added_params"]
+    assert sizes["adaptive"] == 597_002 and sizes["single"] == sizes["fixed"] == 5_383
+
+
+def test_distilbert_size_constant():
+    enc = core.ENCODER_DIR
+    if not (enc / "model.safetensors").exists():
+        pytest.skip("encoder not prepared")
+    from transformers import AutoModel
+
+    m = AutoModel.from_pretrained(str(enc))
+    assert sum(p.numel() for p in m.parameters()) == core.DISTILBERT_BASE_PARAMS
+    assert m.config.dim == core.DISTILBERT_HIDDEN
+
+
+def _write_saved_run(run_dir, recs, speaker_split):
+    from eval.predictions import fusion_weights_frame, predictions_frame, save_predictions
+
+    rng = np.random.default_rng(0)
+    probs = rng.dirichlet(np.ones(7), size=len(recs))
+    ctx = core.build_contexts(recs, 3)
+    s = 3 if speaker_split else 2
+    avail = np.array([[True] + ([bool(c.same_speaker_texts), bool(c.other_speaker_texts)] if speaker_split
+                                else [bool(c.history)]) for c in ctx])
+    w = np.where(avail, rng.random((len(recs), s)), 0.0)
+    w = w / w.sum(1, keepdims=True)
+    save_predictions(predictions_frame(recs, probs.argmax(1), LABELS["meld"], probs), run_dir / "predictions_test.csv")
+    save_predictions(fusion_weights_frame(recs, ctx, probs.argmax(1), LABELS["meld"], w, avail.astype(int),
+                                          speaker_split), run_dir / "fusion_weights_test.csv")
+    return probs, w, avail
+
+
+@pytest.mark.parametrize("speaker_split", [True, False])
+def test_saved_predictor_replays_cluster_outputs(tmp_path, speaker_split):
+    from tests.conftest import make_record
+
+    recs = [make_record("dia3", t, [s], f"line {t}", split="test") for t, s in enumerate("ABAAB")]
+    run = tmp_path / "runs" / "meld_adaptive_k3_s42"
+    probs, w, avail = _write_saved_run(run, recs, speaker_split)
+    kw = dict(runs_dir=tmp_path / "runs", cache_dir=tmp_path / "cache", processed_dir=tmp_path / "proc")
+    status = core.model_status("meld", "adaptive", 3, 42, **kw)
+    assert status.state == "saved" and not status.usable
+
+    sp = core.SavedPredictor.load(run, LABELS["meld"], 3)
+    order = [recs[i] for i in (4, 0, 2)]  # lookup is by utterance_id, not position
+    assert sp.covers(order) and not sp.covers(core.dialogue_records(DIALOGUE, "meld"))
+    pred = sp.predict(order)
+    assert np.allclose(pred.probs, probs[[4, 0, 2]])
+    assert pred.source_names == core.SOURCE_NAMES[3 if speaker_split else 2]
+    assert np.allclose(pred.weights, w[[4, 0, 2]]) and (pred.avail == avail[[4, 0, 2]]).all()
+
+
+def test_checkpoint_wins_over_saved_csvs(tmp_path, tiny_encoder, monkeypatch):
+    from tests.conftest import make_record
+
+    runs = tmp_path / "runs"
+    recs = [make_record("d", t, ["A"], "x", split="test") for t in range(2)]
+    _write_saved_run(runs / "meld_adaptive_k3_s42", recs, True)
+    kw = dict(runs_dir=runs, cache_dir=tmp_path / "cache", processed_dir=tmp_path / "proc")
+    assert core.model_status("meld", "adaptive", 3, 42, **kw).state == "saved"
+    _save_checkpoint(runs / "meld_adaptive_k3_s42" / "best.pt", tiny_encoder, {"type": "fusion", "fusion": {
+        "weighting": "learned", "speaker_split": True, "gate_hidden": 8}}, k=3)
+    monkeypatch.setattr(core, "ENCODER_DIR", core.Path(tiny_encoder))
+    assert core.model_status("meld", "adaptive", 3, 42, **kw).state == "ready"
