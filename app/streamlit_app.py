@@ -153,16 +153,13 @@ def short(text: str, n: int = 46) -> str:
 st.sidebar.title("💬 Context fusion demo")
 dataset = st.sidebar.selectbox("Dataset", list(core.DATASET_NAMES), format_func=core.DATASET_NAMES.get)
 models_k = core.models_for(dataset)
-all_k = sorted({k for ks in models_k.values() for k in ks if k > 0}) or [3]
-seeds = core.seeds_for(dataset) or [42]
-if len(all_k) > 1:
-    k = st.sidebar.select_slider("History turns k", options=all_k, value=3 if 3 in all_k else all_k[0],
-                                 help="How many previous turns the context models see. "
-                                      "TF-IDF and Single never use context.")
-else:
-    k = all_k[0]
-    st.sidebar.markdown(f"History turns **k = {k}** (the only window run on {core.DATASET_NAMES[dataset]})")
-seed = st.sidebar.selectbox("Seed", seeds, help="Each neural configuration was trained with three seeds.")
+# The team fixed the demo to the main setting (k=3, seed 42); k=1/5 and all seeds stay in the Results tab.
+k = core.DEMO_K if core.DEMO_K in {kk for ks in models_k.values() for kk in ks} else max(
+    (kk for ks in models_k.values() for kk in ks), default=0)
+seed = core.DEMO_SEED
+st.sidebar.markdown(f"History turns **k = {k}** · seed **{seed}**  \n"
+                    "<span style='font-size:.8rem;color:#52514e'>The context models see the 3 previous turns. "
+                    "k = 1 and 5 are compared in the 📊 Results tab.</span>", unsafe_allow_html=True)
 
 statuses = {m: core.model_status(dataset, m, k, seed) for m in models_k}
 default_models = [m for m in core.MODEL_ORDER if m in statuses and not m.endswith("_merged")] or list(statuses)
@@ -561,10 +558,10 @@ with tab_results:
 # ================================================================= model status
 
 with tab_status:
-    st.markdown(f"#### {core.DATASET_NAMES[dataset]} runs for seed {seed}")
+    st.markdown(f"#### {core.DATASET_NAMES[dataset]} runs used by the demo (k={k}, seed {seed})")
     rows = []
     for m, ks in models_k.items():
-        for kk in ks:
+        for kk in [k if k in ks else ks[0]]:
             s = core.model_status(dataset, m, kk, seed)
             rows.append({"": STATE_ICON[s.state],
                          "model": core.MODEL_INFO[m].label, "k": kk, "run": s.spec.run_name if s.spec else "—",

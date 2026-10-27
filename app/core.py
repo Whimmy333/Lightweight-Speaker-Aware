@@ -38,6 +38,10 @@ PROCESSED_DIR = ROOT / "data" / "processed"
 ENCODER_DIR = ROOT / "data" / "pretrained" / "distilbert-base-uncased"
 RESULTS_CSV = ROOT / "outputs" / "results_summary.csv"
 
+# The live demo uses the main comparison setting only (team decision, 27 Oct 2026).
+DEMO_K = 3
+DEMO_SEED = 42
+
 DATASET_NAMES = {"meld": "MELD", "emorynlp": "EmoryNLP", "dailydialog": "DailyDialog"}
 
 
