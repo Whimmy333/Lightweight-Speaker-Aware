@@ -13,6 +13,8 @@ Branch for this work: `feature/streamlit-demo` (based on `feature/dailydialog-su
   The team plan in Drive (`work` doc) still budgets ~15 min / 19 slides — needs cutting (raised with team).
 - Part D owns: slides 15–17 (what it means, beyond this task, live demo), the demo recording, group
   reflection, AI-use declaration, submission checklist, Peerceptiv reminders.
+- AI-use declaration is an **MCQ on NTULearn**, answered at submission: nothing to draft. Just put it on
+  the submission checklist.
 - Rubric: without an impressive demo + intuitive frontend, Presentation caps at 2/4.
 
 ## Division of work
