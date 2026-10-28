@@ -18,7 +18,9 @@ import pandas as pd
 import yaml
 
 from configs.generate_configs import CLASSICAL, CLASSIFIER_GRIDS, all_configs
-from eval.aggregate import ARCH_ORDER, BACKBONE_ORDER, _count
+from eval.aggregate import ARCH_ORDER, BACKBONE_ORDER, MODEL_ORDER, _count
+
+DATASET_ORDER = ["meld", "emorynlp", "dailydialog"]
 
 NUM_LABELS = 7  # every dataset uses seven emotion classes
 
@@ -137,7 +139,10 @@ def selected_table(runs_csv: Path) -> list:
         return []
     lines = ["## Selected learning rate and epoch (per seed)", "",
              "| dataset | model | k | learning rate | epoch |", "|---|---|---:|---|---|"]
-    for (ds, model, k), g in runs.sort_values("seed").groupby(["dataset", "model", "k"], sort=False):
+    rank = lambda order: (lambda col: col.map({v: i for i, v in enumerate(order)}).fillna(len(order)))
+    runs = runs.assign(_d=rank(DATASET_ORDER)(runs.dataset), _m=rank(MODEL_ORDER)(runs.model))
+    runs = runs.sort_values(["_d", "_m", "model", "k", "seed"])
+    for (ds, model, k), g in runs.groupby(["dataset", "model", "k"], sort=False):
         lrs = ", ".join(f"{lr:g}" for lr in g.selected_lr)
         epochs = ", ".join(str(int(e)) for e in g.selected_epoch)
         lines.append(f"| {ds} | {model} | {k} | {lrs} | {epochs} |")

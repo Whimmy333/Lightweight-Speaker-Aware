@@ -18,6 +18,7 @@ DailyDialog does not provide explicit speaker IDs in the standard text release. 
 | [docs/HYPERPARAMETERS.md](docs/HYPERPARAMETERS.md) | Hyper-parameter effects: data files and plotting examples |
 | [app/README.md](app/README.md) | Streamlit demo |
 | [docs/HANDOVER.md](docs/HANDOVER.md), [docs/HANDOVER3.md](docs/HANDOVER3.md) | Running the first and second GPU batches on NTU EEE Cluster 02 |
+| [docs/DATA.md](docs/DATA.md) | Data sources, raw columns used, processed format and every cleaning step |
 | [notebooks/data_cleaning.ipynb](notebooks/data_cleaning.ipynb) | Data cleaning and checks |
 | [outputs/data_audit.md](outputs/data_audit.md) | Split sizes, labels, duplicates and overlap checks |
 
@@ -130,9 +131,9 @@ Everything below is on `main`. "Now" means the file is already in the repository
 |---|---|---|
 | Related work, CoMPM comparison, fusion formula, gate size | [docs/TECHNICAL.md §4](docs/TECHNICAL.md#4-models), [Method](#method) | Now |
 | Architecture code | [models/neural.py](models/neural.py) (`FusionClassifier`) | Now |
-| Datasets, splits, labels, imbalance, duplicates | [docs/TECHNICAL.md §2](docs/TECHNICAL.md#2-data), [outputs/data_audit.md](outputs/data_audit.md) | Now |
+| Datasets, splits, labels, imbalance, duplicates | [docs/DATA.md](docs/DATA.md) (columns used, cleaning steps), [docs/TECHNICAL.md §2](docs/TECHNICAL.md#2-data), [outputs/data_audit.md](outputs/data_audit.md) | Now |
 | Training settings and why | [docs/TECHNICAL.md §5 and §9](docs/TECHNICAL.md#5-training-and-model-selection) | Now |
-| Parameter counts per model, full hyper-parameter table, learning rate and epoch each run selected | `outputs/model_details.md` (`python -m eval.model_details`) | Being added |
+| Parameter counts per model, full hyper-parameter table, learning rate and epoch each run selected | [outputs/model_details.md](outputs/model_details.md) (`python -m eval.model_details`); summary under [Model comparison](#model-comparison-other-encoders-and-traditional-baselines) | Now; traditional rows complete when the CPU runs finish |
 | How hyper-parameters change results | [docs/HYPERPARAMETERS.md](docs/HYPERPARAMETERS.md), `outputs/hparams_summary.md` | Traditional models being added (run `python -m eval.hparams`); learning rate × epoch after batch 1; sweep after batch 2 |
 | Engineering: pinned data, config generator, resumable runs, tests | [docs/TECHNICAL.md §10](docs/TECHNICAL.md#10-engineering-reproducibility-and-testing), [tests/](tests/) (`python -m pytest -q`: 114 tests) | Now |
 
@@ -275,6 +276,16 @@ DailyDialog uses the merged-history variants because speaker identities are not 
 
 The original plan above has **57 configurations**: 3 TF-IDF configurations and 54 neural configurations. The model comparison adds 126 (3 EmoryNLP single, 66 encoder-comparison and 57 traditional) and the hyper-parameter sweep 54, for **237** in total. Neural configurations try the two configured learning rates and select the best dev Macro-F1 checkpoint. `python -m eval.model_details` writes parameter counts and hyper-parameter tables to `outputs/model_details.md`; `python -m eval.hparams` collects hyper-parameter effects for plots ([docs/HYPERPARAMETERS.md](docs/HYPERPARAMETERS.md)). The generated configuration files are the source of truth for the exact run settings.
 
+Model size, from [outputs/model_details.md](outputs/model_details.md) (MELD, 7 classes):
+
+| Model | Parameters | Trained parameters |
+|---|---:|---:|
+| DistilBERT: single, concatenation, fixed fusion | 66.37M | 66.37M |
+| DistilBERT: adaptive fusion (gate 0.59M, 0.9%) | 66.96M | 66.96M |
+| BERT-base / RoBERTa-base, single | 109.49M / 124.65M | all |
+| RNN, LSTM, GRU and bidirectional variants, single | 23.7M–25.5M | 0.26M–2.10M (word-piece embeddings frozen) |
+| TF-IDF + LR | 0.27M weights (38,290 features × 7 classes) | all |
+
 ---
 
 ## Data
@@ -284,6 +295,8 @@ The original plan above has **57 configurations**: 3 TF-IDF configurations and 5
 | MELD | 9,989 / 1,109 / 2,610 | anger, disgust, fear, joy, neutral, sadness, surprise | GPL-3.0 |
 | EmoryNLP (original text release) | 9,934 / 1,344 / 1,328 | joyful, mad, neutral, peaceful, powerful, sad, scared | Apache-2.0 |
 | DailyDialog | 87,170 / 8,069 / 7,740 | anger, disgust, fear, happiness, no_emotion, sadness, surprise | CC BY-NC-SA 4.0 |
+
+Which raw columns each dataset provides, which ones we use and every cleaning step are listed in [docs/DATA.md](docs/DATA.md).
 
 DailyDialog split counts refer to utterances, not dialogues. Its published emotion IDs map as follows:
 
