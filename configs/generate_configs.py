@@ -83,6 +83,41 @@ MODELS = {
 # pooling and head, but replaces the learned gate with equal source weights.
 # Existing adaptive runs are also evaluated with equal weights at inference.
 
+# Encoder comparison. DistilBERT (NEURAL_BASE) is the main encoder; these replace it under the
+# same architectures, token budget and dev selection. prepare_data.py fetches the Transformers.
+TRANSFORMERS = {
+    "bert": "data/pretrained/bert-base-uncased",
+    "roberta": "data/pretrained/roberta-base",
+}
+COMPARED_ARCHS = ("single", "concat", "fixed", "adaptive")
+
+# Recurrent encoders read DistilBERT's word pieces through its frozen input embedding table
+# (static vectors, like GloVe), so they keep the token budget of every other neural model.
+RNN_BASE = {"hidden_size": 256, "num_layers": 1, "pooling": "max", "embedding_init": "pretrained",
+            "freeze_embeddings": True}
+RNNS = {
+    f"{'bi' if bidirectional else ''}{cell}": {"cell": cell, "bidirectional": bidirectional, **RNN_BASE}
+    for cell in ("rnn", "lstm", "gru")
+    for bidirectional in (False, True)
+}
+RNN_ARCHS = ("single", "concat")
+RNN_FUSION_BACKBONE = "bilstm"  # also trained with fixed and adaptive fusion
+RNN_DROPOUT = 0.3
+RNN_TRAIN = {"lrs": [1.0e-3, 3.0e-3], "epochs": 10, "amp": False}
+
+# Hyper-parameter sensitivity (MELD, DistilBERT, k=3): one setting changes at a time around the
+# reference lr 2e-5, batch size 16, dropout 0.1. Each config trains a single learning rate, so every
+# setting gets its own dev-selected epoch and test score. This is an analysis of the fixed protocol;
+# it never changes the settings of the main study.
+SWEEP_ARCHS = ("single", "adaptive")
+SWEEP_REFERENCE = {"lr": 2.0e-5, "batch_size": 16, "dropout": 0.1}
+SWEEP_VALUES = {"lr": [1.0e-5, 2.0e-5, 3.0e-5, 5.0e-5, 1.0e-4], "batch_size": [8, 32], "dropout": [0.0, 0.3]}
+SWEEP_TAG = {"lr": "lr", "batch_size": "bs", "dropout": "do"}
+
+# Encoder-comparison and sweep runs only report scores; the demo uses checkpoints of the main study.
+# Deleting theirs after the test evaluation keeps the second GPU batch at a few GB instead of ~30 GB.
+COMPARISON_SAVE = {"keep_best_checkpoint": False, "prune_unselected": True}
+
 TFIDF = {
     "model": {"name": "tfidf_lr", "type": "tfidf_lr"},
     "seed": 42,
@@ -99,12 +134,34 @@ TFIDF = {
     "latency": {"batch_size": 1, "max_samples": 300, "warmup": 10},
 }
 
+# Traditional baselines: every term-weighting scheme with every classifier (models/classical.py).
+# TF-IDF + LR is the tfidf_lr run above and is not repeated.
+WEIGHTINGS = ("binary", "tf", "tfidf", "bm25")
+CLASSIFIER_GRIDS = {
+    "lr": {"C": [0.1, 0.3, 1.0, 3.0, 10.0], "class_weight": [None, "balanced"]},
+    "svm": {"C": [0.01, 0.03, 0.1, 0.3, 1.0], "class_weight": [None, "balanced"]},
+    "mnb": {"alpha": [0.03, 0.1, 0.3, 1.0], "fit_prior": [True, False]},
+    "cnb": {"alpha": [0.03, 0.1, 0.3, 1.0, 3.0]},
+    # min_samples_leaf = 1 never won on dev (MELD, EmoryNLP, DailyDialog binary) and took ~90% of the fit time.
+    "rf": {"n_estimators": [300], "min_samples_leaf": [2, 5], "class_weight": [None, "balanced_subsample"]},
+}
+CLASSICAL = {
+    "seed": 42,
+    "classical": {
+        "max_iter": 2000,
+        "bm25": {"k1": 1.2, "b": 0.75},
+        "feature_grid": {"ngram_range": [[1, 1], [1, 2]], "min_df": [1, 2]},
+    },
+    "latency": {"batch_size": 1, "max_samples": 300, "warmup": 10},
+}
 
-def neural_config(dataset: str, model: str, turns: int, seed: int) -> tuple:
+
+def neural_config(dataset: str, model: str, turns: int, seed: int, backbone: str = "distilbert") -> tuple:
+    model_name = model if backbone == "distilbert" else f"{backbone}_{model}"
     name = (
-        f"{model}_s{seed}"
+        f"{model_name}_s{seed}"
         if model == "single"
-        else f"{model}_k{turns}_s{seed}"
+        else f"{model_name}_k{turns}_s{seed}"
     )
     run_name = f"{dataset}_{name}"
 
@@ -113,7 +170,7 @@ def neural_config(dataset: str, model: str, turns: int, seed: int) -> tuple:
 
     cfg["data"] = {"dataset": dataset, **base["data"]}
     cfg["model"] = {
-        "name": model,
+        "name": model_name,
         **copy.deepcopy(MODELS[model]),
         **base["model"],
     }
@@ -125,7 +182,55 @@ def neural_config(dataset: str, model: str, turns: int, seed: int) -> tuple:
     for key in ("train", "save", "latency"):
         cfg[key] = base[key]
 
+    if backbone != "distilbert":
+        cfg["model"].update({"arch": model, "backbone": backbone})
+        cfg["save"] = dict(COMPARISON_SAVE)
+    if backbone in TRANSFORMERS:
+        cfg["model"]["pretrained"] = TRANSFORMERS[backbone]
+    elif backbone in RNNS:
+        # The tokenizer and the embedding table still come from DistilBERT ("pretrained").
+        del cfg["model"]["utterance_pooling"]
+        cfg["model"].update({"dropout": RNN_DROPOUT, "rnn": copy.deepcopy(RNNS[backbone])})
+        cfg["train"].update(copy.deepcopy(RNN_TRAIN))
+    elif backbone != "distilbert":
+        raise ValueError(f"unknown backbone {backbone!r}")
+
     cfg["output_dir"] = f"outputs/runs/{run_name}"
+    return Path(dataset) / f"{name}.yaml", cfg
+
+
+def sweep_config(model: str, param: str, value, seed: int) -> tuple:
+    _, cfg = neural_config("meld", model, MAIN_TURNS, seed)
+    tag = f"{SWEEP_TAG[param]}{value:g}"
+    model_name = f"sweep_{model}_{tag}"
+    name = f"sweep_{model}_{tag}_s{seed}" if model == "single" else f"sweep_{model}_k{MAIN_TURNS}_{tag}_s{seed}"
+    cfg["run_name"] = f"meld_{name}"
+    cfg["model"].update({"name": model_name, "arch": model})
+    cfg["train"]["lrs"] = [value if param == "lr" else SWEEP_REFERENCE["lr"]]
+    if param == "batch_size":
+        cfg["train"]["batch_size"] = value
+    if param == "dropout":
+        cfg["model"]["dropout"] = value
+    cfg["sweep"] = {"param": param, "value": value}
+    cfg["save"] = dict(COMPARISON_SAVE)
+    cfg["output_dir"] = f"outputs/runs/{cfg['run_name']}"
+    return Path("meld") / f"{name}.yaml", cfg
+
+
+def classical_config(dataset: str, weighting: str, classifier: str) -> tuple:
+    name = f"{weighting}_{classifier}"
+    run_name = f"{dataset}_{name}"
+    base = copy.deepcopy(CLASSICAL)
+    cfg = {
+        "run_name": run_name,
+        "seed": base["seed"],
+        "data": {"dataset": dataset, "processed_dir": "data/processed"},
+        "model": {"name": name, "arch": "classical", "type": "classical", "weighting": weighting,
+                  "classifier": classifier},
+        "classical": {**base["classical"], "classifier_grid": {classifier: copy.deepcopy(CLASSIFIER_GRIDS[classifier])}},
+        "latency": base["latency"],
+        "output_dir": f"outputs/runs/{run_name}",
+    }
     return Path(dataset) / f"{name}.yaml", cfg
 
 
@@ -178,6 +283,32 @@ def all_configs():
             "adaptive_merged",
         ):
             yield neural_config("dailydialog", model, MAIN_TURNS, seed)
+
+        # 6. EmoryNLP single-utterance baseline.
+        yield neural_config("emorynlp", "single", MAIN_TURNS, seed)
+
+        # 7. MELD encoder comparison (k=3): other Transformers, then recurrent encoders.
+        for backbone in TRANSFORMERS:
+            for model in COMPARED_ARCHS:
+                yield neural_config("meld", model, MAIN_TURNS, seed, backbone)
+        for backbone in RNNS:
+            for model in RNN_ARCHS:
+                yield neural_config("meld", model, MAIN_TURNS, seed, backbone)
+        for model in ("fixed", "adaptive"):
+            yield neural_config("meld", model, MAIN_TURNS, seed, RNN_FUSION_BACKBONE)
+
+        # 9. MELD hyper-parameter sensitivity (one setting at a time).
+        for model in SWEEP_ARCHS:
+            for param, values in SWEEP_VALUES.items():
+                for value in values:
+                    yield sweep_config(model, param, value, seed)
+
+    # 8. Traditional baselines (CPU only): term weighting x classifier.
+    for dataset in ("meld", "emorynlp", "dailydialog"):
+        for weighting in WEIGHTINGS:
+            for classifier in CLASSIFIER_GRIDS:
+                if (weighting, classifier) != ("tfidf", "lr"):
+                    yield classical_config(dataset, weighting, classifier)
 
 
 def main() -> None:

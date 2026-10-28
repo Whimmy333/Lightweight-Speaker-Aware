@@ -5,7 +5,8 @@
     python train.py --config ... --override train.batch_size=8 train.device=cuda:1
 
 All hyper-parameters live in the YAML config. ``model.type`` selects the pipeline:
-tfidf_lr (models/tfidf_lr.py) or single / concat / fusion (models/trainer.py).
+tfidf_lr (models/tfidf_lr.py), classical (models/classical.py) or single / concat / fusion
+(models/trainer.py).
 A finished run (``<output_dir>/DONE``) is skipped; an interrupted run resumes.
 """
 
@@ -20,6 +21,7 @@ import yaml
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 SMOKE_SAMPLES = 50
+SKLEARN_TYPES = ("tfidf_lr", "classical")
 
 
 def apply_override(config: dict, item: str) -> None:
@@ -39,7 +41,7 @@ def smoke_config(config: dict) -> dict:
     cfg["data"]["max_samples"] = SMOKE_SAMPLES
     cfg["output_dir"] = os.path.join("outputs", "smoke", cfg["run_name"])
     cfg["latency"] = {**cfg.get("latency", {}), "max_samples": 20, "warmup": 2}
-    if cfg["model"]["type"] != "tfidf_lr":
+    if cfg["model"]["type"] not in SKLEARN_TYPES:
         cfg["train"].update({"epochs": 1, "device": "cpu", "amp": False, "log_every": 1})
         cfg["save"] = {**cfg.get("save", {}), "keep_best_checkpoint": False}
     return cfg
@@ -61,6 +63,8 @@ def main() -> None:
 
     if config["model"]["type"] == "tfidf_lr":
         from models.tfidf_lr import run
+    elif config["model"]["type"] == "classical":
+        from models.classical import run
     else:
         from models.trainer import run
     run(config)

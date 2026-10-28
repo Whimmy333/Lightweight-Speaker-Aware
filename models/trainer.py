@@ -14,6 +14,7 @@ Layout of ``output_dir``:
   predictions_{dev,test}.csv           shared prediction format (eval/predictions.py)
   fusion_weights_{dev,test}.csv        fusion models only, fixed column layout
   metrics_{dev,test}_equal_weights.json  learned-gate models evaluated with equal weights
+  params.json                          parameter counts (total, trainable, encoder, gate, head)
   latency.json, report.md, DONE
 Rerunning a finished run is a no-op; an interrupted run resumes from the last finished epoch.
 """
@@ -46,7 +47,7 @@ from eval.latency import measure_latency
 from eval.metrics import compute_metrics, metrics_to_markdown, save_metrics
 from eval.predictions import fusion_weights_frame, predictions_frame, save_predictions
 from models.batching import Collator, build_token_cache, max_sequence_length
-from models.neural import build_model, input_mode
+from models.neural import build_model, count_parameters, input_mode
 
 log = logging.getLogger("train")
 
@@ -303,9 +304,11 @@ def train_one_lr(config: dict, lr: float, data: RunData, collator: Collator, dev
 
 # ---------------------------------------------------------------- full run
 
-def _report(config, best, histories, metrics, eq_metrics, latency) -> str:
+def _report(config, best, histories, metrics, eq_metrics, latency, params) -> str:
     lines = [f"# {config['run_name']}", "",
              f"Selected lr={best['lr']:g}, epoch {best['epoch']} (dev Macro-F1 {best['dev_macro_f1']:.4f}).", "",
+             f"Parameters: {params['total']:,} total, {params['trainable']:,} trainable "
+             f"(encoder {params['encoder']:,}, gate {params['gate']:,}, head {params['head']:,}).", "",
              "| lr | epoch | train loss | dev Macro-F1 | dev Weighted-F1 | seconds |", "|---|---:|---:|---:|---:|---:|"]
     for hist in histories.values():
         for h in hist:
@@ -371,6 +374,9 @@ def run(config: dict) -> Optional[dict]:
     model = build_model(mcfg, len(data.labels)).to(device)
     state = torch.load(best["checkpoint"], map_location="cpu", weights_only=False)
     model.load_state_dict(state["model"])
+    params = count_parameters(model)
+    (out_dir / "params.json").write_text(json.dumps(params, indent=2), encoding="utf-8")
+    log.info("parameters: %s total, %s trainable", f"{params['total']:,}", f"{params['trainable']:,}")
     eval_bs = tcfg.get("eval_batch_size", 64)
     metrics, eq_metrics = {}, {}
     for sp in ("dev", "test"):
@@ -407,7 +413,7 @@ def run(config: dict) -> Optional[dict]:
     if latency.get("n_samples"):
         log.info("latency %.2f ms/utterance (batch %d)", latency["ms_per_utterance"], latency["batch_size"])
 
-    (out_dir / "report.md").write_text(_report(config, best, histories, metrics, eq_metrics, latency), encoding="utf-8")
+    (out_dir / "report.md").write_text(_report(config, best, histories, metrics, eq_metrics, latency, params), encoding="utf-8")
 
     scfg = config.get("save", {})
     for lr in tcfg["lrs"]:

@@ -4,7 +4,7 @@ from transformers import AutoTokenizer
 
 from data.context import build_contexts
 from models.batching import Collator, build_token_cache, max_sequence_length
-from models.neural import build_model, masked_softmax
+from models.neural import build_model, count_parameters, masked_softmax
 from tests.conftest import make_record
 
 SPEAKERS = ["A", "B", "A", "C", "A"]
@@ -127,3 +127,46 @@ def test_token_cache_matches_live_tokenisation(tokenizer, dialogue):
     live = Collator("fusion", tokenizer, 8)(items(dialogue, 3))
     for key in cached:
         assert torch.equal(cached[key], live[key])
+
+
+def rnn_model(tiny_encoder, model_type="single", cell="lstm", bidirectional=True, pooling="max"):
+    cfg = {"type": model_type, "pretrained": tiny_encoder, "dropout": 0.0,
+           "rnn": {"cell": cell, "bidirectional": bidirectional, "hidden_size": 6, "pooling": pooling}}
+    if model_type == "fusion":
+        cfg["fusion"] = {"weighting": "learned", "speaker_split": True, "gate_hidden": 8}
+    return build_model(cfg, num_labels=7).eval()
+
+
+@pytest.mark.parametrize("cell", ["rnn", "lstm", "gru"])
+@pytest.mark.parametrize("bidirectional", [False, True])
+@pytest.mark.parametrize("pooling", ["max", "last"])
+def test_rnn_encoder_ignores_padding(tiny_encoder, tokenizer, dialogue, cell, bidirectional, pooling):
+    model = rnn_model(tiny_encoder, cell=cell, bidirectional=bidirectional, pooling=pooling)
+    assert model.encoder.hidden_size == 6 * (2 if bidirectional else 1)
+    padded = Collator("concat", tokenizer, 8)(items(dialogue, 3))  # rows of different lengths
+    with torch.no_grad():
+        batch_vecs = model.encoder(padded["input_ids"], padded["attention_mask"])
+        for i in range(len(dialogue)):
+            n = int(padded["attention_mask"][i].sum())
+            alone = model.encoder(padded["input_ids"][i:i + 1, :n], padded["attention_mask"][i:i + 1, :n])
+            assert torch.allclose(batch_vecs[i], alone[0], atol=1e-5)
+
+
+def test_rnn_encoder_in_fusion(tiny_encoder, tokenizer, dialogue):
+    model = rnn_model(tiny_encoder, "fusion")
+    batch = Collator("fusion", tokenizer, 8)(items(dialogue, 5))
+    with torch.no_grad():
+        out = model(batch)
+    assert out["logits"].shape == (len(dialogue), 7)
+    assert torch.allclose(out["weights"].sum(-1), torch.ones(len(dialogue)))
+
+
+def test_count_parameters(tiny_encoder):
+    adaptive, fixed = fusion_model(tiny_encoder), fusion_model(tiny_encoder, weighting="equal")
+    pa, pf = count_parameters(adaptive), count_parameters(fixed)
+    assert pf["gate"] == 0 and pa["gate"] > 0
+    assert pa["total"] == pf["total"] + pa["gate"] == pa["encoder"] + pa["gate"] + pa["head"]
+    assert pa["trainable"] == pa["total"]
+    rnn = count_parameters(rnn_model(tiny_encoder))
+    frozen = rnn_model(tiny_encoder).encoder.embedding.weight.numel()
+    assert rnn["trainable"] == rnn["total"] - frozen and rnn["encoder_trainable"] == rnn["encoder"] - frozen

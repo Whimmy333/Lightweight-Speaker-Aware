@@ -5,6 +5,7 @@ Examples:
     python prepare_data.py
     python prepare_data.py --no-download
     python prepare_data.py --datasets dailydialog --skip-encoder
+    python prepare_data.py --encoders distilbert-base-uncased    # main study only, no BERT/RoBERTa
 
 Raw files go to data/raw/<dataset>/.
 Processed files go to data/processed/<dataset>/<split>.jsonl.
@@ -45,15 +46,18 @@ DAILYDIALOG_ARCHIVE_URL = (
     "https://aclanthology.org/attachments/I17-1099.Datasets.zip"
 )
 
-ENCODER_REPO = "distilbert/distilbert-base-uncased"
-ENCODER_REVISION = "12040accade4e8a0f71eabdb258fecc2e7e948be"
-ENCODER_DIR = Path("data/pretrained/distilbert-base-uncased")
+# Pretrained encoders, pinned to Hugging Face revisions. DistilBERT is the main encoder (and the
+# tokenizer of the recurrent models); BERT and RoBERTa are only used by the encoder comparison.
+ENCODERS = {
+    "distilbert-base-uncased": ("distilbert/distilbert-base-uncased", "12040accade4e8a0f71eabdb258fecc2e7e948be"),
+    "bert-base-uncased": ("google-bert/bert-base-uncased", "86b5e0934494bd15c9632b12f734a8a67f723594"),
+    "roberta-base": ("FacebookAI/roberta-base", "e2da8e2f811d1448a5b465c236feacd80ffbac7b"),
+}
+PRETRAINED_DIR = Path("data/pretrained")
 ENCODER_FILES = (
     "config.json",
     "model.safetensors",
-    "tokenizer.json",
     "tokenizer_config.json",
-    "vocab.txt",
 )
 
 SOURCES = {
@@ -308,45 +312,44 @@ def fetch_raw(raw_dir: Path, datasets, allow_download: bool) -> list:
     return source_records
 
 
-def fetch_encoder(allow_download: bool) -> None:
-    if all(
-        (ENCODER_DIR / f).exists()
-        for f in ("config.json", "model.safetensors", "vocab.txt")
-    ):
-        return
+def fetch_encoder(name: str, allow_download: bool) -> Path:
+    repo, revision = ENCODERS[name]
+    encoder_dir = PRETRAINED_DIR / name
+    if all((encoder_dir / f).exists() for f in ENCODER_FILES):
+        return encoder_dir
 
-    url = f"https://huggingface.co/{ENCODER_REPO}/tree/{ENCODER_REVISION}"
+    url = f"https://huggingface.co/{repo}/tree/{revision}"
 
     if allow_download:
         print(
-            f"downloading {ENCODER_REPO}@{ENCODER_REVISION[:8]} "
-            f"-> {ENCODER_DIR}"
+            f"downloading {repo}@{revision[:8]} "
+            f"-> {encoder_dir}"
         )
         try:
             from transformers import AutoModel, AutoTokenizer
 
             AutoTokenizer.from_pretrained(
-                ENCODER_REPO,
-                revision=ENCODER_REVISION,
-            ).save_pretrained(ENCODER_DIR)
+                repo,
+                revision=revision,
+            ).save_pretrained(encoder_dir)
 
             AutoModel.from_pretrained(
-                ENCODER_REPO,
-                revision=ENCODER_REVISION,
-            ).save_pretrained(ENCODER_DIR)
+                repo,
+                revision=revision,
+            ).save_pretrained(encoder_dir)
 
-            (ENCODER_DIR / "SOURCE.txt").write_text(
-                f"{ENCODER_REPO}@{ENCODER_REVISION}\n",
+            (encoder_dir / "SOURCE.txt").write_text(
+                f"{repo}@{revision}\n",
                 encoding="utf-8",
             )
-            return
+            return encoder_dir
 
         except Exception as exc:
             print(f"encoder download failed: {exc}", file=sys.stderr)
 
     print(
-        f"\nDistilBERT is missing. Put {', '.join(ENCODER_FILES)} from {url}\n"
-        f"into {ENCODER_DIR}/ and rerun with --no-download.",
+        f"\n{name} is missing. Put the model and tokenizer files from {url}\n"
+        f"into {encoder_dir}/ and rerun with --no-download.",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -375,7 +378,14 @@ def main() -> None:
     ap.add_argument(
         "--skip-encoder",
         action="store_true",
-        help="do not fetch DistilBERT (TF-IDF only)",
+        help="do not fetch any pretrained encoder (TF-IDF and other traditional baselines only)",
+    )
+    ap.add_argument(
+        "--encoders",
+        nargs="+",
+        default=list(ENCODERS),
+        choices=list(ENCODERS),
+        help="pretrained encoders to fetch (default: all; DistilBERT alone is enough for the main study)",
     )
     ap.add_argument(
         "--allow-checksum-mismatch",
@@ -450,8 +460,9 @@ def main() -> None:
     print(f"{len(flagged)} flagged dialogues written to {flagged_path}")
 
     if not args.skip_encoder:
-        fetch_encoder(allow_download=not args.no_download)
-        print(f"encoder ready in {ENCODER_DIR}")
+        for name in args.encoders:
+            encoder_dir = fetch_encoder(name, allow_download=not args.no_download)
+            print(f"encoder ready in {encoder_dir}")
 
 
 if __name__ == "__main__":

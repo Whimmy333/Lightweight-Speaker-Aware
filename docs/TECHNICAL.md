@@ -203,6 +203,27 @@ gate and classifier are fine-tuned together.
   (`metrics_*_equal_weights.json`). This shows whether the trained model actually relies on the weights
   it learned.
 
+**Encoder comparison.** On MELD (k = 3, three seeds), the same architectures run with other utterance
+encoders (`model.backbone` in the config; `models/neural.py`):
+
+- *Transformers*: `bert-base-uncased` (pinned `86b5e09`) and `roberta-base` (pinned `e2da8e2`) in all four
+  architectures, with the training settings of Section 5.
+- *Recurrent*: RNN, LSTM and GRU, each one- and bidirectional, as single-utterance and concatenation
+  models; BiLSTM also with fixed and adaptive fusion. They read DistilBERT's word pieces through its frozen
+  768-d input embedding table (static vectors, like GloVe), so they keep the token budget of every other
+  model. One recurrent layer of 256 units per direction, max-pooling over time, dropout 0.3, learning rates
+  1e-3 and 3e-3, 10 epochs, fp32.
+
+Because every encoder sees the same word pieces of the same turns, differences come from the encoder.
+
+**Traditional baselines.** Four term-weighting schemes (binary presence, raw term frequency, sublinear
+TF-IDF, Okapi BM25 with k1 = 1.2 and b = 0.75) are crossed with five classifiers (logistic regression,
+linear SVM, multinomial and complement naive Bayes, random forest with 300 trees) in `models/classical.py`.
+They use the tokens of TF-IDF + LR, classify the current utterance only and select their own grid on dev
+Macro-F1. They run once per pair and dataset on CPU. The random forest grid uses minimum leaf sizes 2 and 5:
+a first grid with 1 and 2 always selected 2 on dev, and leaf size 1 took about 90% of the fit time (over an
+hour per run on DailyDialog).
+
 **Relation to CoMPM (Lee & Lee, 2022).** CoMPM is the methodological reference for the value of speaker
 history. Our design is a simplified, shared-encoder adaptation. Its differences from the published method:
 
@@ -253,7 +274,15 @@ All models report through the same code in `eval/`:
   predicted label and class probabilities; for fusion models, one row per utterance with source
   availability and the three weights.
 - **Aggregation** (`eval/aggregate.py`): mean ± sample standard deviation over seeds, per dataset, model
-  and context length, written to `outputs/results_summary.md`.
+  and context length, written to `outputs/results_summary.md`. The encoder comparison and the
+  term-weighting × classifier matrix get their own tables there.
+- **Model size and settings**: every run writes `params.json` (total and trainable parameters; learned
+  values for traditional models). `python -m eval.model_details` writes `outputs/model_details.md` with
+  parameter counts for every configured model, the hyper-parameter tables and the learning rate and epoch
+  each run selected.
+- **Hyper-parameter effects** (`python -m eval.hparams`, see `docs/HYPERPARAMETERS.md`): dev Macro-F1 per
+  learning rate and epoch for every neural run, per grid point for traditional models, and the test
+  scores of the one-setting-at-a-time sweep.
 - **Sensitivity**: `outputs/flagged_dialogues.csv` lists the dialogues to drop from dev/test for a check
   that the conclusions do not depend on re-used scenes.
 
@@ -262,25 +291,48 @@ predictions.
 
 ## 7. Experiment matrix and compute
 
-44 configurations are generated from one file (`configs/generate_configs.py`):
+237 configurations are generated from one file (`configs/generate_configs.py`):
 
 | group | configurations | runs |
 |---|---|---:|
-| TF-IDF baseline | MELD, EmoryNLP | 2 |
+| TF-IDF baseline | MELD, EmoryNLP, DailyDialog | 3 |
 | MELD main comparison (k=3) | single, concat, fixed, adaptive × 3 seeds | 12 |
 | EmoryNLP replication (k=3) | concat, fixed, adaptive × 3 seeds | 9 |
 | MELD speaker-merge ablation (k=3) | adaptive_merged × 3 seeds | 3 |
 | MELD context length (k=1, 5; k=3 reused) | concat, fixed, adaptive × 2 × 3 seeds | 18 |
+| DailyDialog supplementary (k=3) | single, concat, fixed_merged, adaptive_merged × 3 seeds | 12 |
+| EmoryNLP single-utterance baseline | single × 3 seeds | 3 |
+| MELD Transformer encoders (k=3) | BERT, RoBERTa × single, concat, fixed, adaptive × 3 seeds | 24 |
+| MELD recurrent encoders (k=3) | 6 RNN/LSTM/GRU variants × single, concat × 3 seeds; BiLSTM fixed, adaptive × 3 seeds | 42 |
+| Traditional baselines (CPU) | 4 weightings × 5 classifiers − TF-IDF + LR, × 3 datasets | 57 |
+| MELD hyper-parameter sweep (k=3) | single, adaptive × (5 learning rates, 2 batch sizes, 2 dropouts) × 3 seeds | 54 |
 
-Each of the 42 neural configurations trains twice (two learning rates), so there are 84 training runs of up
-to 5 epochs each. `run_all.sh` runs them in this priority order, so the main comparison finishes first.
+The first six groups (57 configurations) are the original study and have finished. Each neural
+configuration trains once per learning rate (two), for up to 5 epochs (10 for recurrent encoders).
+`run_all.sh` runs the groups in this priority order, so the main comparison finishes first.
 The runs are planned on one NVIDIA A40 of NTU EEE Cluster 02 (`cluster/train.sbatch`); all training jobs
 use the same GPU model, so latencies are comparable. GPU time has not been measured yet. Each epoch's
 duration is logged, so the first finished run gives a reliable estimate. Disk use is about 0.25 GB per finished run (one checkpoint), about 11 GB in total.
 
 ## 8. Results so far
 
-Only the TF-IDF baseline has been run. These numbers are final for that model.
+The original study (57 configurations) has finished on one A40. Test Macro-F1 at k = 3, mean ± std over
+three seeds (full tables, per-class F1 and latency in `outputs/results_summary.md`; analysis in
+`docs/HANDOVER2.md`):
+
+| model | MELD | EmoryNLP | DailyDialog |
+|---|---:|---:|---:|
+| TF-IDF + LR | 0.360 | 0.286 | 0.437 |
+| single-utterance DistilBERT | 0.437 ± 0.007 | in progress | 0.478 ± 0.028 |
+| concatenation | 0.428 ± 0.012 | 0.292 ± 0.011 | 0.488 ± 0.022 |
+| fixed fusion | 0.361 ± 0.008 | 0.248 ± 0.004 | 0.480 ± 0.012 (merged) |
+| adaptive fusion | 0.438 ± 0.006 | 0.282 ± 0.007 | 0.489 ± 0.006 (merged) |
+
+The learned gate matters (fixed fusion is far below adaptive, and swapping equal weights into the trained
+adaptive model drops MELD to 0.349), but context adds little over the single-utterance model, and speaker
+separation shows no clear gain (MELD 0.438 vs 0.435 merged). No significance test has been run yet.
+
+The TF-IDF + LR details below are final for that model.
 
 | dataset | dev Macro-F1 | test Macro-F1 | test Weighted-F1 | test accuracy | latency (CPU, batch 1) | selected settings |
 |---|---:|---:|---:|---:|---:|---|
@@ -331,13 +383,16 @@ configurations); those smoke-test scores carry no information about model qualit
 - **Determinism.** Seeds fix initialisation and data order (the shuffle seed is derived from seed and
   epoch). GPU kernels are not forced to be deterministic, so repeated GPU runs can differ slightly;
   three seeds capture this variation.
-- **Tests.** 47 pytest tests run in about 7 seconds without downloads. They cover:
+- **Tests.** 114 pytest tests (one more is skipped without local data) run in about 20 seconds without
+  downloads. They cover:
   - loaders and context construction: first turn, window sizes, speaker split, multi-speaker overlap,
     dialogue/split boundaries, label leakage;
   - the token budget, fusion masking and weights, and the gate's equal-weight initialisation;
   - every model type end to end on a tiny randomly initialised encoder, crash-and-resume, and refusal of
     changed configs;
   - TF-IDF with missing classes, the scene-overlap detector and aggregation.
+  - RNN/LSTM/GRU encoders (padding never changes the output), parameter counts, BM25 and every
+    traditional classifier, the hyper-parameter tables, and the Streamlit demo's core logic.
 
   Separate checks exercised the bf16 mixed-precision path on CPU and resume on a non-CPU device (Apple
   MPS). Those checks found and fixed a resume bug: random-number states had been loaded onto the GPU.

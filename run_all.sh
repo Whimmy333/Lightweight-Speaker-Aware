@@ -86,6 +86,50 @@ for s in "${SEEDS[@]}"; do
   CONFIGS+=("configs/dailydialog/adaptive_merged_k3_s${s}.yaml")
 done
 
+# 6. EmoryNLP single-utterance baseline.
+for s in "${SEEDS[@]}"; do
+  CONFIGS+=("configs/emorynlp/single_s${s}.yaml")
+done
+
+# 7. MELD encoder comparison (k=3): BERT and RoBERTa in every architecture,
+# recurrent encoders as single/concat, and BiLSTM also with fixed and adaptive fusion.
+for s in "${SEEDS[@]}"; do
+  for e in bert roberta; do
+    CONFIGS+=("configs/meld/${e}_single_s${s}.yaml")
+    for m in concat fixed adaptive; do
+      CONFIGS+=("configs/meld/${e}_${m}_k3_s${s}.yaml")
+    done
+  done
+  for e in rnn birnn lstm bilstm gru bigru; do
+    CONFIGS+=("configs/meld/${e}_single_s${s}.yaml")
+    CONFIGS+=("configs/meld/${e}_concat_k3_s${s}.yaml")
+  done
+  for m in fixed adaptive; do
+    CONFIGS+=("configs/meld/bilstm_${m}_k3_s${s}.yaml")
+  done
+done
+
+# 8. Traditional baselines: term weighting x classifier, CPU only.
+# TF-IDF + LR is the tfidf_lr run at the top.
+for d in meld emorynlp dailydialog; do
+  for w in binary tf tfidf bm25; do
+    for c in lr svm mnb cnb rf; do
+      [[ "$w/$c" == "tfidf/lr" ]] && continue
+      CONFIGS+=("configs/$d/${w}_${c}.yaml")
+    done
+  done
+done
+
+# 9. MELD hyper-parameter sensitivity (DistilBERT, k=3): one setting changed at a time
+# around lr 2e-5, batch size 16, dropout 0.1; every config trains a single learning rate.
+for s in "${SEEDS[@]}"; do
+  for m in single adaptive_k3; do
+    for t in lr1e-05 lr2e-05 lr3e-05 lr5e-05 lr0.0001 bs8 bs32 do0 do0.3; do
+      CONFIGS+=("configs/meld/sweep_${m}_${t}_s${s}.yaml")
+    done
+  done
+done
+
 # Validate that all configs exist before starting any experiment.
 for cfg in "${CONFIGS[@]}"; do
   if [[ ! -f "$cfg" ]]; then
@@ -143,14 +187,20 @@ if [[ -n "$SMOKE" ]]; then
     --runs-dir "$OUT/." \
     --out-prefix "$OUT/results"
 else
+  # Refuses (and leaves the tables alone) when earlier runs listed there are not in this folder.
   "$PYTHON" -m eval.aggregate \
     --runs-dir "$OUT/runs" \
     --out-prefix "$OUT/results"
 fi
+aggregated=$?
 
 if [[ ${#failed[@]} -gt 0 ]]; then
   echo "FAILED (${#failed[@]}): ${failed[*]}" >&2
   exit 1
 fi
 
-echo "All selected runs finished; summary in $OUT/results_summary.md"
+if [[ $aggregated -eq 0 ]]; then
+  echo "All selected runs finished; summary in $OUT/results_summary.md"
+else
+  echo "All selected runs finished; the summary tables were not rebuilt (see the message above)"
+fi

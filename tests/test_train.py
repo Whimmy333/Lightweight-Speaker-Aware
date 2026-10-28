@@ -112,3 +112,133 @@ def test_tfidf_with_missing_classes_and_aggregate(data_dir, tiny_encoder):
     runs = collect(data_dir / "runs")
     assert set(runs.model) == {"tfidf_lr"}
     assert "main comparison" in to_markdown(summarise(runs))
+
+
+@pytest.mark.parametrize("model", ["single", "adaptive"])
+def test_rnn_backbone_runs(data_dir, tiny_encoder, model):
+    _, cfg = neural_config("meld", model, 3, 42, backbone="bilstm")
+    assert cfg["model"]["arch"] == model and cfg["train"]["amp"] is False
+    cfg["data"]["processed_dir"] = str(data_dir / "processed")
+    cfg["model"]["pretrained"] = tiny_encoder
+    cfg["model"]["rnn"]["hidden_size"] = 6
+    cfg["train"].update({"epochs": 1, "lrs": [1e-3], "batch_size": 4, "eval_batch_size": 8, "device": "cpu"})
+    cfg["latency"] = {"batch_size": 1, "max_samples": 5, "warmup": 1}
+    cfg["output_dir"] = str(data_dir / "runs" / f"bilstm_{model}")
+    res = trainer.run(cfg)
+    assert 0.0 <= res["metrics"]["test"]["macro_f1"] <= 1.0
+    params = json.loads((data_dir / "runs" / f"bilstm_{model}" / "params.json").read_text())
+    assert params["trainable"] < params["total"]  # the embedding table is frozen
+    assert (params["gate"] > 0) == (model == "adaptive")
+
+
+def test_distilbert_configs_have_no_backbone_keys():
+    _, cfg = neural_config("meld", "adaptive", 3, 42)
+    assert "arch" not in cfg["model"] and "backbone" not in cfg["model"] and "rnn" not in cfg["model"]
+
+
+def test_aggregate_separates_main_study_from_comparisons(data_dir, tiny_encoder):
+    from configs.generate_configs import classical_config
+    from models.classical import run as run_classical
+
+    runs = data_dir / "runs"
+    for name, backbone in (("single", "distilbert"), ("lstm_single", "lstm")):
+        _, cfg = neural_config("meld", "single", 3, 42, backbone=backbone)
+        cfg["data"]["processed_dir"] = str(data_dir / "processed")
+        cfg["model"]["pretrained"] = tiny_encoder
+        if backbone == "lstm":
+            cfg["model"]["rnn"]["hidden_size"] = 6
+        cfg["train"].update({"epochs": 1, "lrs": [1e-3], "batch_size": 4, "eval_batch_size": 8, "device": "cpu"})
+        cfg["latency"] = {"batch_size": 1, "max_samples": 5, "warmup": 1}
+        cfg["output_dir"] = str(runs / name)
+        trainer.run(cfg)
+    for weighting, classifier in (("binary", "mnb"), ("bm25", "cnb")):
+        _, cfg = classical_config("meld", weighting, classifier)
+        cfg["data"]["processed_dir"] = str(data_dir / "processed")
+        cfg["classical"]["feature_grid"] = {"ngram_range": [[1, 1]], "min_df": [1]}
+        cfg["latency"] = {"batch_size": 1, "max_samples": 5, "warmup": 1}
+        cfg["output_dir"] = str(runs / f"{weighting}_{classifier}")
+        run_classical(cfg)
+
+    collected = collect(runs)
+    assert set(collected.backbone.dropna()) == {"distilbert", "lstm"}
+    assert set(collected.weighting.dropna()) == {"binary", "bm25"}
+    md = to_markdown(summarise(collected))
+    main = md.split("## meld: main comparison")[1].split("##")[0]
+    assert "| single |" in main and "lstm_single" not in main and "bm25_cnb" not in main
+    assert "## meld: encoder comparison (k=3)" in md and "| lstm |" in md
+    assert "## meld: term weighting x classifier" in md and "| bm25 |" in md
+
+
+def test_sweep_configs_change_one_setting():
+    from configs.generate_configs import COMPARISON_SAVE, SWEEP_REFERENCE, sweep_config
+
+    _, ref = neural_config("meld", "adaptive", 3, 42)
+    _, cfg = sweep_config("adaptive", "dropout", 0.3, 42)
+    assert cfg["train"]["lrs"] == [SWEEP_REFERENCE["lr"]] and cfg["model"]["dropout"] == 0.3
+    assert cfg["model"]["arch"] == "adaptive" and cfg["sweep"] == {"param": "dropout", "value": 0.3}
+    for key in ("context", "latency", "data"):
+        assert cfg[key] == ref[key]
+    assert ref["save"]["keep_best_checkpoint"] and cfg["save"] == COMPARISON_SAVE
+    _, lr_cfg = sweep_config("single", "lr", 1e-4, 43)
+    assert lr_cfg["train"]["lrs"] == [1e-4] and lr_cfg["run_name"] == "meld_sweep_single_lr0.0001_s43"
+
+
+def test_hparams_tables(data_dir, tiny_encoder):
+    from configs.generate_configs import SWEEP_REFERENCE, sweep_config
+    from eval import hparams
+    from models.tfidf_lr import run as run_tfidf
+
+    runs = data_dir / "runs"
+    cfg = tiny_config(data_dir, tiny_encoder, "single", run="single")  # two learning rates, two epochs
+    trainer.run(cfg)
+    for value in (1e-3, 2e-3):
+        _, sw = sweep_config("single", "lr", value, 42)
+        sw["data"]["processed_dir"] = str(data_dir / "processed")
+        sw["model"]["pretrained"] = tiny_encoder
+        sw["train"].update({"epochs": 1, "batch_size": 4, "eval_batch_size": 8, "device": "cpu"})
+        sw["latency"] = {"batch_size": 1, "max_samples": 5, "warmup": 1}
+        sw["output_dir"] = str(runs / sw["run_name"])
+        trainer.run(sw)
+    _, tf = tfidf_config("meld")
+    tf["data"]["processed_dir"] = str(data_dir / "processed")
+    tf["tfidf_lr"]["grid"] = {"ngram_range": [[1, 1]], "min_df": [1], "C": [0.1, 1.0], "class_weight": [None]}
+    tf["latency"] = {"batch_size": 1, "max_samples": 5, "warmup": 1}
+    tf["output_dir"] = str(runs / "tfidf")
+    run_tfidf(tf)
+
+    collected = collect(runs)
+    epochs = hparams.epoch_table(runs, collected)
+    single = epochs[epochs.run_name == cfg["run_name"]]
+    assert len(single) == 4 and single.selected.sum() == 1  # 2 learning rates x 2 epochs
+    sweep = hparams.sweep_table(collected)
+    assert sorted(sweep.sweep_value) == [1e-3, 2e-3] and sweep.test_macro_f1.notna().all()
+    grid = hparams.grid_table(runs)
+    assert len(grid) == 2 and grid.selected.sum() == 1 and set(grid.classifier) == {"lr"}
+    md = "\n".join(hparams.epochs_markdown(epochs) + hparams.sweep_markdown(sweep, SWEEP_REFERENCE)
+                   + hparams.grid_markdown(grid))
+    assert "### meld / single (k=0)" in md and "### lr" in md and "### meld / lr: C" in md
+    summary = summarise(collected)
+    assert "sweep_single_lr0.001" not in to_markdown(summary).split("## meld: main comparison")[1]
+
+
+def test_aggregate_refuses_to_drop_runs(data_dir, monkeypatch):
+    import sys
+
+    from eval import aggregate
+    from models.tfidf_lr import run as run_tfidf
+
+    _, cfg = tfidf_config("meld")
+    cfg["data"]["processed_dir"] = str(data_dir / "processed")
+    cfg["tfidf_lr"]["grid"] = {"ngram_range": [[1, 1]], "min_df": [1], "C": [1.0], "class_weight": [None]}
+    cfg["latency"] = {"batch_size": 1, "max_samples": 5, "warmup": 1}
+    cfg["output_dir"] = str(data_dir / "runs" / "tfidf")
+    run_tfidf(cfg)
+    prefix = data_dir / "results"
+    pd.DataFrame({"run_name": ["meld_tfidf_lr", "meld_adaptive_k3_s42"]}).to_csv(f"{prefix}_runs.csv", index=False)
+    argv = ["aggregate", "--runs-dir", str(data_dir / "runs"), "--out-prefix", str(prefix)]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(SystemExit, match="meld_adaptive_k3_s42"):
+        aggregate.main()
+    monkeypatch.setattr(sys, "argv", argv + ["--allow-drop"])
+    aggregate.main()
+    assert list(pd.read_csv(f"{prefix}_runs.csv").run_name) == ["meld_tfidf_lr"]

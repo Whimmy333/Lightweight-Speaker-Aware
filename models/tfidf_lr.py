@@ -106,6 +106,9 @@ def run(config: dict) -> dict:
     pd.DataFrame(rows).to_csv(out_dir / "grid_search.csv", index=False)
     _, best_params, vec, clf = best
     joblib.dump({"vectorizer": vec, "classifier": clf, "labels": labels}, out_dir / "model.joblib")
+    params = {"n_features": len(vec.vocabulary_), "parameters": int(clf.coef_.size + clf.intercept_.size),
+              "unit": "weights", "selected": best_params}
+    (out_dir / "params.json").write_text(json.dumps(params, indent=2), encoding="utf-8")
 
     results = {"best_params": best_params}
     report = [f"# TF-IDF + LR on {dataset}", "", f"Selected on dev Macro-F1: `{json.dumps(best_params)}`", ""]
