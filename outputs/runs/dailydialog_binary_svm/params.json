@@ -1,0 +1,14 @@
+{
+  "n_features": 100761,
+  "parameters": 705334,
+  "unit": "weights",
+  "selected": {
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 2,
+    "C": 0.1,
+    "class_weight": "balanced"
+  }
+}

@@ -1,0 +1,41 @@
+run_name: emorynlp_bm25_lr
+seed: 42
+data:
+  dataset: emorynlp
+  processed_dir: data/processed
+model:
+  name: bm25_lr
+  arch: classical
+  type: classical
+  weighting: bm25
+  classifier: lr
+classical:
+  max_iter: 2000
+  bm25:
+    k1: 1.2
+    b: 0.75
+  feature_grid:
+    ngram_range:
+    - - 1
+      - 1
+    - - 1
+      - 2
+    min_df:
+    - 1
+    - 2
+  classifier_grid:
+    lr:
+      C:
+      - 0.1
+      - 0.3
+      - 1.0
+      - 3.0
+      - 10.0
+      class_weight:
+      - null
+      - balanced
+latency:
+  batch_size: 1
+  max_samples: 300
+  warmup: 10
+output_dir: outputs/runs/emorynlp_bm25_lr

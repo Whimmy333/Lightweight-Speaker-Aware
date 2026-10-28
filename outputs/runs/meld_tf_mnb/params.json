@@ -1,0 +1,14 @@
+{
+  "n_features": 5546,
+  "parameters": 38829,
+  "unit": "weights",
+  "selected": {
+    "ngram_range": [
+      1,
+      1
+    ],
+    "min_df": 1,
+    "alpha": 0.03,
+    "fit_prior": true
+  }
+}

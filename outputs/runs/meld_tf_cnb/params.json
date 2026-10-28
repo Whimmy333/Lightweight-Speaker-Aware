@@ -1,0 +1,13 @@
+{
+  "n_features": 38290,
+  "parameters": 268037,
+  "unit": "weights",
+  "selected": {
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 1,
+    "alpha": 0.3
+  }
+}
