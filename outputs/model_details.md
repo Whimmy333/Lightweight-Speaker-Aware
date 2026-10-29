@@ -42,42 +42,59 @@ Learned values of the selected model: one weight per feature and class (plus int
 | dailydialog | binary_cnb | 100,761 | 705,334 (705K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 1.0}` |
 | dailydialog | binary_lr | 220,964 | 1,546,755 (1.5M) | weights | `{"ngram_range": [1, 2], "min_df": 1, "C": 3.0, "class_weight": null}` |
 | dailydialog | binary_mnb | 220,964 | 1,546,755 (1.5M) | weights | `{"ngram_range": [1, 2], "min_df": 1, "alpha": 0.1, "fit_prior": true}` |
+| dailydialog | binary_rf | 100,761 | 1,675,528 (1.7M) | tree nodes | `{"ngram_range": [1, 2], "min_df": 2, "n_estimators": 300, "min_samples_leaf": 2, "class_weight": "balanced_subsample"}` |
 | dailydialog | binary_svm | 100,761 | 705,334 (705K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "C": 0.1, "class_weight": "balanced"}` |
+| dailydialog | bm25_cnb | 220,964 | 1,546,755 (1.5M) | weights | `{"ngram_range": [1, 2], "min_df": 1, "alpha": 3.0}` |
 | dailydialog | bm25_lr | 100,761 | 705,334 (705K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "C": 0.1, "class_weight": null}` |
+| dailydialog | bm25_mnb | 220,964 | 1,546,755 (1.5M) | weights | `{"ngram_range": [1, 2], "min_df": 1, "alpha": 1.0, "fit_prior": true}` |
+| dailydialog | bm25_rf | 100,761 | 1,992,320 (2.0M) | tree nodes | `{"ngram_range": [1, 2], "min_df": 2, "n_estimators": 300, "min_samples_leaf": 2, "class_weight": "balanced_subsample"}` |
+| dailydialog | bm25_svm | 100,761 | 705,334 (705K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "C": 0.01, "class_weight": "balanced"}` |
 | dailydialog | tf_cnb | 100,761 | 705,334 (705K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 1.0}` |
 | dailydialog | tf_lr | 220,964 | 1,546,755 (1.5M) | weights | `{"ngram_range": [1, 2], "min_df": 1, "C": 3.0, "class_weight": null}` |
 | dailydialog | tf_mnb | 220,964 | 1,546,755 (1.5M) | weights | `{"ngram_range": [1, 2], "min_df": 1, "alpha": 0.1, "fit_prior": true}` |
+| dailydialog | tf_rf | 100,761 | 1,691,600 (1.7M) | tree nodes | `{"ngram_range": [1, 2], "min_df": 2, "n_estimators": 300, "min_samples_leaf": 2, "class_weight": "balanced_subsample"}` |
 | dailydialog | tf_svm | 220,964 | 1,546,755 (1.5M) | weights | `{"ngram_range": [1, 2], "min_df": 1, "C": 0.03, "class_weight": "balanced"}` |
+| dailydialog | tfidf_cnb | 100,761 | 705,334 (705K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 0.3}` |
+| dailydialog | tfidf_mnb | 100,761 | 705,334 (705K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 0.03, "fit_prior": true}` |
+| dailydialog | tfidf_rf | 100,761 | 2,023,514 (2.0M) | tree nodes | `{"ngram_range": [1, 2], "min_df": 2, "n_estimators": 300, "min_samples_leaf": 2, "class_weight": "balanced_subsample"}` |
 | dailydialog | tfidf_svm | 220,964 | 1,546,755 (1.5M) | weights | `{"ngram_range": [1, 2], "min_df": 1, "C": 0.1, "class_weight": "balanced"}` |
 | emorynlp | binary_cnb | 14,328 | 100,303 (100K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 3.0}` |
 | emorynlp | binary_lr | 14,328 | 100,303 (100K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "C": 0.1, "class_weight": "balanced"}` |
 | emorynlp | binary_mnb | 14,328 | 100,303 (100K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 0.1, "fit_prior": true}` |
+| emorynlp | binary_rf | 14,328 | 320,128 (320K) | tree nodes | `{"ngram_range": [1, 2], "min_df": 2, "n_estimators": 300, "min_samples_leaf": 2, "class_weight": "balanced_subsample"}` |
 | emorynlp | binary_svm | 48,736 | 341,159 (341K) | weights | `{"ngram_range": [1, 2], "min_df": 1, "C": 0.01, "class_weight": "balanced"}` |
 | emorynlp | bm25_cnb | 14,328 | 100,303 (100K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 3.0}` |
 | emorynlp | bm25_lr | 3,270 | 22,897 (23K) | weights | `{"ngram_range": [1, 1], "min_df": 2, "C": 0.1, "class_weight": "balanced"}` |
 | emorynlp | bm25_mnb | 48,736 | 341,159 (341K) | weights | `{"ngram_range": [1, 2], "min_df": 1, "alpha": 1.0, "fit_prior": true}` |
+| emorynlp | bm25_rf | 48,736 | 66,676 (67K) | tree nodes | `{"ngram_range": [1, 2], "min_df": 1, "n_estimators": 300, "min_samples_leaf": 5, "class_weight": "balanced_subsample"}` |
 | emorynlp | bm25_svm | 6,663 | 46,648 (47K) | weights | `{"ngram_range": [1, 1], "min_df": 1, "C": 0.01, "class_weight": "balanced"}` |
 | emorynlp | tf_cnb | 14,328 | 100,303 (100K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 3.0}` |
 | emorynlp | tf_lr | 3,270 | 22,897 (23K) | weights | `{"ngram_range": [1, 1], "min_df": 2, "C": 0.1, "class_weight": "balanced"}` |
 | emorynlp | tf_mnb | 14,328 | 100,303 (100K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 0.3, "fit_prior": true}` |
+| emorynlp | tf_rf | 3,270 | 327,256 (327K) | tree nodes | `{"ngram_range": [1, 1], "min_df": 2, "n_estimators": 300, "min_samples_leaf": 2, "class_weight": "balanced_subsample"}` |
 | emorynlp | tf_svm | 3,270 | 22,897 (23K) | weights | `{"ngram_range": [1, 1], "min_df": 2, "C": 0.01, "class_weight": "balanced"}` |
 | emorynlp | tfidf_cnb | 14,328 | 100,303 (100K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 1.0}` |
 | emorynlp | tfidf_mnb | 14,328 | 100,303 (100K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 0.3, "fit_prior": false}` |
+| emorynlp | tfidf_rf | 3,270 | 408,006 (408K) | tree nodes | `{"ngram_range": [1, 1], "min_df": 2, "n_estimators": 300, "min_samples_leaf": 2, "class_weight": "balanced_subsample"}` |
 | emorynlp | tfidf_svm | 3,270 | 22,897 (23K) | weights | `{"ngram_range": [1, 1], "min_df": 2, "C": 0.1, "class_weight": "balanced"}` |
 | meld | binary_cnb | 11,532 | 80,731 (81K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 1.0}` |
 | meld | binary_lr | 38,290 | 268,037 (268K) | weights | `{"ngram_range": [1, 2], "min_df": 1, "C": 0.3, "class_weight": "balanced"}` |
 | meld | binary_mnb | 11,532 | 80,731 (81K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 0.1, "fit_prior": true}` |
+| meld | binary_rf | 11,532 | 74,078 (74K) | tree nodes | `{"ngram_range": [1, 2], "min_df": 2, "n_estimators": 300, "min_samples_leaf": 5, "class_weight": "balanced_subsample"}` |
 | meld | binary_svm | 38,290 | 268,037 (268K) | weights | `{"ngram_range": [1, 2], "min_df": 1, "C": 0.03, "class_weight": "balanced"}` |
 | meld | bm25_cnb | 38,290 | 268,037 (268K) | weights | `{"ngram_range": [1, 2], "min_df": 1, "alpha": 3.0}` |
 | meld | bm25_lr | 5,546 | 38,829 (39K) | weights | `{"ngram_range": [1, 1], "min_df": 1, "C": 0.1, "class_weight": "balanced"}` |
 | meld | bm25_mnb | 38,290 | 268,037 (268K) | weights | `{"ngram_range": [1, 2], "min_df": 1, "alpha": 1.0, "fit_prior": true}` |
+| meld | bm25_rf | 38,290 | 261,156 (261K) | tree nodes | `{"ngram_range": [1, 2], "min_df": 1, "n_estimators": 300, "min_samples_leaf": 2, "class_weight": "balanced_subsample"}` |
 | meld | bm25_svm | 5,546 | 38,829 (39K) | weights | `{"ngram_range": [1, 1], "min_df": 1, "C": 0.01, "class_weight": "balanced"}` |
 | meld | tf_cnb | 38,290 | 268,037 (268K) | weights | `{"ngram_range": [1, 2], "min_df": 1, "alpha": 0.3}` |
 | meld | tf_lr | 38,290 | 268,037 (268K) | weights | `{"ngram_range": [1, 2], "min_df": 1, "C": 0.3, "class_weight": "balanced"}` |
 | meld | tf_mnb | 5,546 | 38,829 (39K) | weights | `{"ngram_range": [1, 1], "min_df": 1, "alpha": 0.03, "fit_prior": true}` |
+| meld | tf_rf | 11,532 | 302,786 (303K) | tree nodes | `{"ngram_range": [1, 2], "min_df": 2, "n_estimators": 300, "min_samples_leaf": 2, "class_weight": "balanced_subsample"}` |
 | meld | tf_svm | 38,290 | 268,037 (268K) | weights | `{"ngram_range": [1, 2], "min_df": 1, "C": 0.03, "class_weight": "balanced"}` |
 | meld | tfidf_cnb | 38,290 | 268,037 (268K) | weights | `{"ngram_range": [1, 2], "min_df": 1, "alpha": 0.1}` |
 | meld | tfidf_mnb | 11,532 | 80,731 (81K) | weights | `{"ngram_range": [1, 2], "min_df": 2, "alpha": 0.3, "fit_prior": false}` |
+| meld | tfidf_rf | 11,532 | 99,040 (99K) | tree nodes | `{"ngram_range": [1, 2], "min_df": 2, "n_estimators": 300, "min_samples_leaf": 5, "class_weight": "balanced_subsample"}` |
 | meld | tfidf_svm | 38,290 | 268,037 (268K) | weights | `{"ngram_range": [1, 2], "min_df": 1, "C": 0.1, "class_weight": "balanced"}` |
 
 ## Hyper-parameters (neural models)

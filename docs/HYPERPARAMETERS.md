@@ -8,7 +8,7 @@ can show, where the numbers come from, what changed in the code to provide them,
 | question | data | available |
 |---|---|---|
 | How do learning rate and number of epochs change dev Macro-F1 (every neural model)? | `hparams_epochs.csv` | after the per-run folders of the GPU batches are pushed |
-| How do C, alpha, class weights, n-grams and min_df change dev Macro-F1 (traditional models)? | `hparams_grid.csv` | being added (CPU runs in progress); `python -m eval.hparams` covers the pairs finished so far |
+| How do C, alpha, class weights, n-grams and min_df change dev Macro-F1 (traditional models)? | `hparams_grid.csv` | now |
 | How do learning rate, batch size and dropout change **test** Macro-F1 (Single and Adaptive on MELD)? | `hparams_sweep.csv` | after the sweep runs on the GPU (about 1.5–2 h) |
 | How does the context window k change results? | `results_summary.md`, "context length" | now |
 

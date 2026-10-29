@@ -1,0 +1,38 @@
+run_name: dailydialog_tfidf_cnb
+seed: 42
+data:
+  dataset: dailydialog
+  processed_dir: data/processed
+model:
+  name: tfidf_cnb
+  arch: classical
+  type: classical
+  weighting: tfidf
+  classifier: cnb
+classical:
+  max_iter: 2000
+  bm25:
+    k1: 1.2
+    b: 0.75
+  feature_grid:
+    ngram_range:
+    - - 1
+      - 1
+    - - 1
+      - 2
+    min_df:
+    - 1
+    - 2
+  classifier_grid:
+    cnb:
+      alpha:
+      - 0.03
+      - 0.1
+      - 0.3
+      - 1.0
+      - 3.0
+latency:
+  batch_size: 1
+  max_samples: 300
+  warmup: 10
+output_dir: outputs/runs/dailydialog_tfidf_cnb

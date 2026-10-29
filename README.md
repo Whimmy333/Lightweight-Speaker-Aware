@@ -9,7 +9,7 @@ The main controlled comparisons use **MELD** and **EmoryNLP**. We add **DailyDia
 
 DailyDialog does not provide explicit speaker IDs in the standard text release. Its experiments therefore use speaker-independent history fusion and do not test whether separating same-speaker history from other-speaker history helps.
 
-> **Status.** The original study (57 configurations on MELD, EmoryNLP and DailyDialog) has finished on the cluster; its results are in [outputs/results_summary.md](outputs/results_summary.md) and summarised under [Results so far](#results-so-far). A second GPU batch (other encoders, the EmoryNLP single-utterance baseline and a hyper-parameter sweep) and the traditional term-weighting × classifier baselines are in progress. Everything is on `main`; `feature/dailydialog-support` has been merged. **Preparing the video?** See [For the presentation: where to find things](#for-the-presentation-where-to-find-things).
+> **Status.** The original study (57 configurations on MELD, EmoryNLP and DailyDialog) has finished on the cluster; its results are in [outputs/results_summary.md](outputs/results_summary.md) and summarised under [Results so far](#results-so-far). The traditional term-weighting × classifier baselines have finished ([below](#traditional-baselines)); a second GPU batch (other encoders, the EmoryNLP single-utterance baseline and a hyper-parameter sweep) is next. Everything is on `main`; `feature/dailydialog-support` has been merged. **Preparing the video?** See [For the presentation: where to find things](#for-the-presentation-where-to-find-things).
 
 | Document | Purpose |
 |---|---|
@@ -96,7 +96,7 @@ Test Macro-F1 of the original study, k = 3, mean ± std over seeds 42, 43 and 44
 |---|---:|---:|---:|
 | Always predicting the most frequent class | 0.093 | 0.059 | 0.128 |
 | TF-IDF + LR | 0.360 | 0.286 | 0.437 |
-| Single-utterance DistilBERT | 0.437 ± 0.007 | in progress | 0.478 ± 0.028 |
+| Single-utterance DistilBERT | 0.437 ± 0.007 | second GPU batch | 0.478 ± 0.028 |
 | Concatenation | 0.428 ± 0.012 | 0.292 ± 0.011 | 0.488 ± 0.022 |
 | Fixed fusion (equal weights) | 0.361 ± 0.008 | 0.248 ± 0.004 | 0.480 ± 0.012 |
 | Adaptive fusion (ours) | 0.438 ± 0.006 | 0.282 ± 0.007 | 0.489 ± 0.006 |
@@ -110,6 +110,27 @@ DailyDialog has no speaker IDs, so its fusion models pool all history into one s
 - **Cost:** on MELD, adaptive fusion takes 4.9 ms per utterance on the cluster GPU vs 4.0 ms for concatenation and single-utterance models.
 
 No significance test has been run yet, so small differences should not be called improvements.
+
+### Traditional baselines
+
+Nineteen term weighting × classifier pairs per dataset, each reading the current utterance only, with every setting (n-grams, min_df, C or alpha, class weights, leaf size) chosen on dev Macro-F1; one deterministic run each. Test Macro-F1 of each classifier with the weighting that dev selected for it:
+
+| Classifier | MELD | EmoryNLP | DailyDialog |
+|---|---:|---:|---:|
+| Logistic regression | 0.360 (TF-IDF) | **0.279** (TF) | 0.448 (binary) |
+| Linear SVM | **0.382** (TF-IDF) | 0.272 (TF) | **0.485** (TF) |
+| Multinomial naive Bayes | 0.352 (binary) | 0.251 (TF) | 0.432 (binary) |
+| Complement naive Bayes | 0.328 (TF) | 0.251 (TF-IDF) | 0.431 (TF-IDF) |
+| Random forest (300 trees) | 0.358 (BM25) | 0.278 (binary) | 0.437 (TF) |
+| Best DistilBERT model (table above) | 0.438 | 0.292 | 0.489 |
+
+Bold: the pair selected on dev over all 19.
+
+- **A linear model is the best traditional classifier on every dataset**, although random forest comes within 0.001 on EmoryNLP; naive Bayes is the weakest.
+- **The pretrained encoder's lead depends on the dataset:** +0.056 on MELD, +0.013 on EmoryNLP and +0.004 on DailyDialog, where a linear SVM on term counts is level with DistilBERT.
+- **The classifier matters more than the weighting.** BM25 is never the weighting dev selects for a linear model.
+
+Scores of every pair are in `outputs/runs/<dataset>_<weighting>_<classifier>/metrics_test.json`, every grid point in [outputs/hparams_grid.csv](outputs/hparams_grid.csv). They enter the "term weighting x classifier" tables of `outputs/results_summary.md` once the first batch's run folders are in the repository.
 
 ---
 
@@ -133,8 +154,8 @@ Everything below is on `main`. "Now" means the file is already in the repository
 | Architecture code | [models/neural.py](models/neural.py) (`FusionClassifier`) | Now |
 | Datasets, splits, labels, imbalance, duplicates | [docs/DATA.md](docs/DATA.md) (columns used, cleaning steps), [docs/TECHNICAL.md §2](docs/TECHNICAL.md#2-data), [outputs/data_audit.md](outputs/data_audit.md) | Now |
 | Training settings and why | [docs/TECHNICAL.md §5 and §9](docs/TECHNICAL.md#5-training-and-model-selection) | Now |
-| Parameter counts per model, full hyper-parameter table, learning rate and epoch each run selected | [outputs/model_details.md](outputs/model_details.md) (`python -m eval.model_details`); summary under [Model comparison](#model-comparison-other-encoders-and-traditional-baselines) | Now; traditional rows complete when the CPU runs finish |
-| How hyper-parameters change results | [docs/HYPERPARAMETERS.md](docs/HYPERPARAMETERS.md), `outputs/hparams_summary.md` | Traditional models being added (run `python -m eval.hparams`); learning rate × epoch after batch 1; sweep after batch 2 |
+| Parameter counts per model, full hyper-parameter table, learning rate and epoch each run selected | [outputs/model_details.md](outputs/model_details.md) (`python -m eval.model_details`); summary under [Model comparison](#model-comparison-other-encoders-and-traditional-baselines) | Now |
+| How hyper-parameters change results | [docs/HYPERPARAMETERS.md](docs/HYPERPARAMETERS.md), [outputs/hparams_summary.md](outputs/hparams_summary.md), [outputs/hparams_grid.csv](outputs/hparams_grid.csv) | Traditional models now; learning rate × epoch after batch 1; sweep after batch 2 |
 | Engineering: pinned data, config generator, resumable runs, tests | [docs/TECHNICAL.md §10](docs/TECHNICAL.md#10-engineering-reproducibility-and-testing), [tests/](tests/) (`python -m pytest -q`: 114 tests) | Now |
 
 **C: experiments and results (slides 10–14)**
@@ -146,7 +167,7 @@ Everything below is on `main`. "Now" means the file is already in the repository
 | Chart data (mean and std per model, dataset and k) | [outputs/results_summary.csv](outputs/results_summary.csv); per seed: [outputs/results_runs.csv](outputs/results_runs.csv) | Now |
 | Context length (k = 1, 3, 5) and ablations | [outputs/results_summary.md](outputs/results_summary.md) "context length", "ablations" | Now |
 | GPU time per configuration | [outputs/run_all_status.log](outputs/run_all_status.log) (7.75 h in total on one A40) | Now |
-| Other encoders (BERT, RoBERTa, RNN/LSTM/GRU) and term weighting × classifier | `outputs/results_summary.md` "encoder comparison", "term weighting x classifier"; chart data in `outputs/results_comparison.csv` | Traditional models being added; encoders after batch 2 |
+| Other encoders (BERT, RoBERTa, RNN/LSTM/GRU) and term weighting × classifier | [Traditional baselines](#traditional-baselines); later `outputs/results_summary.md` "encoder comparison", "term weighting x classifier" and chart data in `outputs/results_comparison.csv` | Traditional models now; encoders after batch 2 |
 
 **D: interpretation and demo (slides 15–17)**
 

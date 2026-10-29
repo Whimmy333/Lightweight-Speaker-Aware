@@ -1,0 +1,14 @@
+{
+  "n_samples": 300,
+  "batch_size": 1,
+  "ms_per_utterance": 27.493131273270894,
+  "ms_per_batch_mean": 27.493131273270897,
+  "ms_per_batch_p50": 26.96031250525266,
+  "ms_per_batch_p95": 27.966118848416954,
+  "hardware": {
+    "device": "cpu",
+    "cpu": "arm",
+    "torch_threads": 4
+  },
+  "includes": "tokenisation + forward pass + argmax (history context built from the same records)"
+}

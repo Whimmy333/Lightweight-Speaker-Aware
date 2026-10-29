@@ -1,0 +1,40 @@
+run_name: emorynlp_tf_rf
+seed: 42
+data:
+  dataset: emorynlp
+  processed_dir: data/processed
+model:
+  name: tf_rf
+  arch: classical
+  type: classical
+  weighting: tf
+  classifier: rf
+classical:
+  max_iter: 2000
+  bm25:
+    k1: 1.2
+    b: 0.75
+  feature_grid:
+    ngram_range:
+    - - 1
+      - 1
+    - - 1
+      - 2
+    min_df:
+    - 1
+    - 2
+  classifier_grid:
+    rf:
+      n_estimators:
+      - 300
+      min_samples_leaf:
+      - 2
+      - 5
+      class_weight:
+      - null
+      - balanced_subsample
+latency:
+  batch_size: 1
+  max_samples: 300
+  warmup: 10
+output_dir: outputs/runs/emorynlp_tf_rf

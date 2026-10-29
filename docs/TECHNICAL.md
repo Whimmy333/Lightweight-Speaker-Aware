@@ -323,7 +323,7 @@ three seeds (full tables, per-class F1 and latency in `outputs/results_summary.m
 | model | MELD | EmoryNLP | DailyDialog |
 |---|---:|---:|---:|
 | TF-IDF + LR | 0.360 | 0.286 | 0.437 |
-| single-utterance DistilBERT | 0.437 ± 0.007 | in progress | 0.478 ± 0.028 |
+| single-utterance DistilBERT | 0.437 ± 0.007 | second GPU batch | 0.478 ± 0.028 |
 | concatenation | 0.428 ± 0.012 | 0.292 ± 0.011 | 0.488 ± 0.022 |
 | fixed fusion | 0.361 ± 0.008 | 0.248 ± 0.004 | 0.480 ± 0.012 (merged) |
 | adaptive fusion | 0.438 ± 0.006 | 0.282 ± 0.007 | 0.489 ± 0.006 (merged) |
@@ -331,6 +331,12 @@ three seeds (full tables, per-class F1 and latency in `outputs/results_summary.m
 The learned gate matters (fixed fusion is far below adaptive, and swapping equal weights into the trained
 adaptive model drops MELD to 0.349), but context adds little over the single-utterance model, and speaker
 separation shows no clear gain (MELD 0.438 vs 0.435 merged). No significance test has been run yet.
+
+The traditional baselines (Section 4) have finished. The pair selected on dev over all 19 reaches 0.382 on
+MELD (TF-IDF + linear SVM), 0.279 on EmoryNLP (TF + LR) and 0.485 on DailyDialog (TF + linear SVM).
+DistilBERT's lead over it is therefore 0.056, 0.013 and 0.004: on DailyDialog a linear model on term counts
+is level with the pretrained encoder. The best linear model beats naive Bayes and random forest on every
+dataset, though by only 0.001 over random forest on EmoryNLP.
 
 The TF-IDF + LR details below are final for that model.
 

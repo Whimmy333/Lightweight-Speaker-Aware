@@ -1,0 +1,15 @@
+{
+  "n_features": 11532,
+  "parameters": 302786,
+  "unit": "tree nodes",
+  "selected": {
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 2,
+    "n_estimators": 300,
+    "min_samples_leaf": 2,
+    "class_weight": "balanced_subsample"
+  }
+}
