@@ -13,6 +13,8 @@ DailyDialog does not provide explicit speaker IDs in the standard text release. 
 
 | Document | Purpose |
 |---|---|
+| [docs/PROPOSAL.md](docs/PROPOSAL.md) | Group proposal, revised with the final results (replaces the original PDF) |
+| [docs/WHEN_CONTEXT_HELPS.md](docs/WHEN_CONTEXT_HELPS.md) | The title question answered: when context helps, when it does not, and why |
 | [docs/TECHNICAL.md](docs/TECHNICAL.md) | Data, models, protocol, decisions and limitations |
 | [docs/HANDOVER2.md](docs/HANDOVER2.md) | Analysis of the first GPU batch (main results, ablations, latency) |
 | [docs/HYPERPARAMETERS.md](docs/HYPERPARAMETERS.md) | Hyper-parameter effects: data files and plotting examples |
