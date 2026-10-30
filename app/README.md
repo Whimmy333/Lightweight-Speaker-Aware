@@ -20,7 +20,7 @@ Runs on a laptop CPU. No GPU, no network needed once data and checkpoints are lo
 | MELD / EmoryNLP test-set dialogues with gold labels | nothing — falls back to the committed `outputs/runs/<ds>_tfidf_lr/predictions_test.csv` |
 | **TF-IDF + LR live predictions** | `python prepare_data.py` once (training data), then `python -m app.warm_cache` (re-runs the configured grid from `models/tfidf_lr.py`, ~1–2 min per dataset on a laptop, longer for DailyDialog; cached in `outputs/demo_cache/`). Without the warm-up the app trains on first use behind a spinner. Reproduces the committed baseline exactly (identical MELD and EmoryNLP test predictions). |
 | Neural models, live on any dialogue | their checkpoints in `outputs/runs/` + the DistilBERT files from `prepare_data.py` |
-| Neural models on Featured / Test set dialogues (💾) | nothing for MELD: the four seed-42 k=3 runs' `predictions_test.csv` (+ `fusion_weights_test.csv`) are committed, and the app replays the cluster's exact outputs. A checkpoint, when present, takes over and also enables typed dialogues |
+| Neural models on Featured / Test set dialogues (💾) | nothing, on all three datasets: the seed-42 runs' `predictions_test.csv` (+ `fusion_weights_test.csv`) are committed, and the app replays the cluster's exact outputs. A checkpoint, when present, takes over and also enables typed dialogues |
 
 Models that cannot run are left out of “Models to compare” and listed under Model status (sidebar) and the 🔧 Models tab with the reason; the rest of the app keeps working. Maintainer instructions live only here, not in the app.
 

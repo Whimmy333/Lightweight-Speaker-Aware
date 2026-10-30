@@ -567,6 +567,10 @@ The dataset preparation script downloads the archive and extracts the required d
 | Path | Content |
 |---|---|
 | `outputs/results_summary.md` | Aggregated comparison across completed runs |
+| `outputs/results_summary.csv`, `outputs/results_comparison.csv` | Chart data: main study (read by the demo); encoder comparison, traditional baselines and sweep |
+| `outputs/results_runs.csv` | One row per run and seed, with the selected learning rate and epoch |
+| `outputs/hparams_summary.md`, `outputs/hparams_*.csv` | Hyper-parameter effects (`python -m eval.hparams`) |
+| `outputs/run_all_status.log` | OK/FAIL and duration of every GPU run |
 | `outputs/model_details.md` | Parameter counts and hyper-parameter tables (`python -m eval.model_details`) |
 | `outputs/runs/<run_name>/params.json` | Parameter counts of the run's model |
 | `outputs/runs/<run_name>/metrics_dev.json` | Dev metrics and per-class evaluation |
@@ -574,7 +578,7 @@ The dataset preparation script downloads the archive and extracts the required d
 | `outputs/runs/<run_name>/predictions_dev.csv` | Per-utterance dev predictions and probabilities |
 | `outputs/runs/<run_name>/predictions_test.csv` | Per-utterance test predictions and probabilities |
 | `outputs/runs/<run_name>/fusion_weights_*.csv` | Fusion source availability and weights |
-| `outputs/runs/<run_name>/` | Configuration, logs, checkpoints and latency outputs |
+| `outputs/runs/<run_name>/` | Configuration, logs, per-epoch dev metrics and latency outputs (checkpoints stay on the cluster, git-ignored) |
 | `outputs/flagged_dialogues.csv` | Dialogues flagged for overlap or duplication |
 | `outputs/data_audit.md` | Dataset audit and preprocessing notes |
 
@@ -613,9 +617,9 @@ configs/
 cluster/             Slurm scripts for NTU EEE Cluster 02
 notebooks/           Data-cleaning notebook
 docs/                Technical notes and handover instructions
-outputs/              Audits, run outputs and aggregate results
-app/                  Streamlit demo
-tests/                Unit and integration tests
+outputs/             Audits, run outputs and aggregate results
+app/                 Streamlit demo
+tests/               Unit and integration tests
 ```
 
 ---
@@ -623,6 +627,9 @@ tests/                Unit and integration tests
 ## References
 
 - Poria et al. (2019). *MELD: A Multimodal Multi-Party Dataset for Emotion Recognition in Conversations*. ACL.
+- Devlin et al. (2019). *BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding*. NAACL.
+- Liu et al. (2019). *RoBERTa: A Robustly Optimized BERT Pretraining Approach*. arXiv:1907.11692.
+- Lu et al. (2020). *An Iterative Emotion Interaction Network for Emotion Recognition in Conversations*. COLING.
 - Zahiri & Choi (2018). *Emotion Detection on TV Show Transcripts with Sequence-based CNNs*. AAAI Workshops.
 - Lee & Lee (2022). *CoMPM: Context Modeling with Speaker's Pre-trained Memory Tracking for Emotion Recognition in Conversation*. NAACL.
 - Sanh et al. (2019). *DistilBERT, a distilled version of BERT*. NeurIPS EMC² Workshop.

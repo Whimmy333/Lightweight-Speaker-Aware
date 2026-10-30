@@ -1,9 +1,8 @@
 # Technical Report: Speaker-Aware Context Fusion for Conversational Emotion Recognition
 
-EE6405 Natural Language Processing, group project. This report describes what has been built so far:
-the data pipeline, the models, the training and evaluation protocol, and the results that exist today.
-GPU training of the neural models has not been run yet, so this report contains no neural-model results.
-Section 9 lists the decisions that refine the original proposal.
+EE6405 Natural Language Processing, group project. This report describes the data pipeline, the models,
+the training and evaluation protocol, and the results of all 237 configurations (Section 8). Section 9 lists
+the decisions that refine the original proposal.
 
 ## Contents
 
@@ -430,11 +429,12 @@ configurations); those smoke-test scores carry no information about model qualit
 
   Separate checks exercised the bf16 mixed-precision path on CPU and resume on a non-CPU device (Apple
   MPS). Those checks found and fixed a resume bug: random-number states had been loaded onto the GPU.
-- **Smoke test.** `bash run_all.sh --smoke` ran all 44 configurations on CPU without errors in 16 minutes.
+- **Smoke test.** `bash run_all.sh --smoke` ran all 44 configurations that existed before DailyDialog was
+  added on CPU without errors in 16 minutes.
 - **Cluster job scripts.** `cluster/*.sbatch` follow the NTU EEE Cluster 02 rules: environment and caches
   in the SSD project directory, a named GPU model, no CPU/memory flags on GPU jobs, CPU-only jobs for setup
-  and smoke tests. Their logic was exercised locally with stand-ins for `module`/`conda`/`nvidia-smi`; they
-  have not yet run on the cluster itself.
+  and smoke tests. They ran both GPU batches on the cluster: 7.75 h for the original study and 7.66 h for
+  the model comparison, on one A40, with no failed run.
 
 ## 11. Limitations and risks
 
@@ -445,7 +445,7 @@ configurations); those smoke-test scores carry no information about model qualit
   sources exist, on every seed), but it then varies little between utterances (10–90% range 0.79–0.88).
 - **Label noise and ambiguity.** Many identical texts have different gold labels, and re-used scenes are
   labelled inconsistently (Section 2.4). This caps attainable scores and adds variance to minority classes.
-- **Hardware.** Training is planned on NTU EEE Cluster 02 with NVIDIA A40 GPUs (bf16). The fp16
+- **Hardware.** Training ran on NTU EEE Cluster 02 with NVIDIA A40 GPUs (bf16). The fp16
   fallback for GPUs without bf16 is untested, but no allowed GPU on that cluster needs it. Its Blackwell
   GPUs (`pro6000`, `rtx5090`) are excluded: the pinned torch 2.5.1 has no kernels for them.
 - **Seeds.** Three seeds give a rough spread, not a tight confidence interval. Differences smaller than

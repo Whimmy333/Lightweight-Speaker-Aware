@@ -6,8 +6,13 @@ is one `sbatch` command with a ready-made job script in `cluster/`, and every st
 something here does not match what you see, stop and ask before changing any settings. The comparisons
 are only valid if every model runs under the same rules.
 
-**What you will produce:** results for 44 experiment configurations (84 training runs), a summary table and
-per-utterance prediction files. These go back into the repository's `outputs/` folder.
+**Status: done.** The original study (57 configurations) ran on one A40 in 7.75 h with no failed run; its
+outputs are in `outputs/`. This guide is kept as the record of how it was run; the second batch is in
+[HANDOVER3.md](HANDOVER3.md).
+
+**What you will produce:** results for 57 experiment configurations (54 neural, each trained at two learning
+rates, and 3 TF-IDF), a summary table and per-utterance prediction files. These go back into the
+repository's `outputs/` folder.
 
 **Time:** about an hour of setup and checks (mostly waiting for jobs), then the unattended training job.
 
@@ -90,14 +95,14 @@ This job does the following:
 - creates a conda environment in `/projects/<name>/envs/ee6405` (Python 3.12, from the `Miniforge3` module);
 - installs the pinned packages;
 - downloads the datasets (checked by SHA-256) and DistilBERT;
-- builds `data/processed/` and runs the 47 unit tests.
+- builds `data/processed/` and runs the unit tests.
 
 The log must contain:
 
 ```
 torch 2.5.1+cu124 | transformers 4.46.3
 encoder ready in data/pretrained/distilbert-base-uncased
-47 passed
+114 passed, 1 skipped
 setup finished
 ```
 
@@ -148,8 +153,8 @@ Then remove the check outputs: `rm -rf outputs/gpu_check`.
 sbatch cluster/train.sbatch
 ```
 
-The job asks for one A40 for up to 3 days. GPU time has not been measured yet; a rough guess is several
-hours to about a day, well within the limit. If the job does stop at the time limit, **submit the same
+The job asks for one A40 for up to 3 days. The original study took 7.75 GPU-hours (per run in
+`outputs/run_all_status.log`), well within the limit. If the job does stop at the time limit, **submit the same
 command again**: finished runs are skipped and the interrupted run continues from its last finished epoch.
 
 **Three GPUs in parallel (faster), split by seed.** The setup job has already prepared the data, so the

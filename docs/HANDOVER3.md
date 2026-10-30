@@ -1,5 +1,10 @@
 # Handover 3 — Second GPU batch: model comparison
 
+**Status: done.** Job 233504 ran the 123 configurations on 2026-10-29 in 7 h 39 min with no failed run;
+the outputs are merged into `main`. `outputs/run_all_status.log` shows 180 OK lines because the fresh clone
+already held the 57 lines of the first batch and `run_all.sh` appends to that log; lines 58–180 are this
+batch. This page is kept as the record of how the batch was run.
+
 **For:** the group member who runs training on NTU EEE Cluster 02.
 **What:** 123 new neural configurations, following the course coordinator's feedback to compare more
 model types. Everything in [HANDOVER.md](HANDOVER.md) still applies (same cluster rules, same A40 GPU

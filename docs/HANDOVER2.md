@@ -27,7 +27,7 @@
 |Dataset|Single|Concat (k=3)|Fixed (k=3)|Adaptive (k=3)|
 |-|-:|-:|-:|-:|
 |MELD|0.4367|0.4278|0.3613|**0.4382**|
-|EmoryNLP|Not included|**0.2919**|0.2479|0.2824|
+|EmoryNLP|0.2701|**0.2919**|0.2479|0.2824|
 |DailyDialog|0.4776|0.4878|0.4801\*|**0.4893**\*|
 
 
@@ -93,11 +93,11 @@ Adaptive incurs approximately **20–25% more latency** than Concat in these run
 ## 8\. Key takeaways for the presentation
 
 1. **Competitive overall performance.** Adaptive is first by mean test Macro-F1 on MELD and DailyDialog and second on EmoryNLP. The two leading margins are narrow.
-2. **Context is not automatically helpful.** MELD Single (0.4367) nearly matches Adaptive (0.4382), and beats Concat (0.4278).
+2. **Context is not automatically helpful.** MELD Single (0.4367) nearly matches Adaptive (0.4382), and beats Concat (0.4278). EmoryNLP is the exception: its Single baseline, run in the second batch (0.2701), is significantly below Concat (0.2919, p = 0.009).
 3. **The learned fusion mechanism matters in these experiments.** Adaptive substantially exceeds the trained Fixed baseline on MELD, while inference-time equal-weight intervention reduces the trained model's performance.
 4. **Useful context length is model-dependent.** Adaptive benefits modestly from larger k on MELD; Concat does not improve monotonically.
 5. **There is a cost–performance trade-off.** Adaptive is \~20–25% slower than Concat in mean per-utterance latency.
-6. **Report metrics carefully.** Use Macro-F1 as the primary measure, retain three-seed variation, acknowledge class imbalance, and avoid claims of statistical significance without testing.
+6. **Report metrics carefully.** Use Macro-F1 as the primary measure, retain three-seed variation and acknowledge class imbalance. Significance comes from the paired bootstrap in the README ("Results so far"); only the gaps to Fixed and EmoryNLP's Concat vs Single gap are significant.
 
 
 
