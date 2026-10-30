@@ -1,0 +1,7 @@
+{
+  "lr": 2e-05,
+  "epoch": 4,
+  "dev_macro_f1": 0.48328078869082075,
+  "checkpoint": "outputs/runs/meld_roberta_concat_k3_s42/lr_2e-05/checkpoints/best.pt",
+  "checkpoint_kept": false
+}

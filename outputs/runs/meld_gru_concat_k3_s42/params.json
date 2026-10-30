@@ -1,0 +1,8 @@
+{
+  "total": 24230663,
+  "trainable": 789767,
+  "encoder": 24228864,
+  "encoder_trainable": 787968,
+  "gate": 0,
+  "head": 1799
+}

@@ -1,0 +1,78 @@
+2026-10-29 09:04:57 INFO run meld_roberta_fixed_k3_s43 on cuda (amp=torch.bfloat16), model=roberta_fixed, k=3, lrs=[2e-05, 5e-05]
+2026-10-29 09:04:58 INFO utterances: {'train': 9989, 'dev': 1109, 'test': 2610}
+2026-10-29 09:05:06 INFO lr_2e-05 epoch 1 step 100/625 loss 1.6923
+2026-10-29 09:05:13 INFO lr_2e-05 epoch 1 step 200/625 loss 1.5940
+2026-10-29 09:05:20 INFO lr_2e-05 epoch 1 step 300/625 loss 1.5164
+2026-10-29 09:05:26 INFO lr_2e-05 epoch 1 step 400/625 loss 1.4606
+2026-10-29 09:05:33 INFO lr_2e-05 epoch 1 step 500/625 loss 1.4231
+2026-10-29 09:05:40 INFO lr_2e-05 epoch 1 step 600/625 loss 1.4067
+2026-10-29 09:05:42 INFO lr_2e-05 epoch 1: train loss 1.4001, dev Macro-F1 0.2999, Weighted-F1 0.4787 *best* (43s)
+2026-10-29 09:05:51 INFO lr_2e-05 epoch 2 step 100/625 loss 1.1921
+2026-10-29 09:05:58 INFO lr_2e-05 epoch 2 step 200/625 loss 1.1843
+2026-10-29 09:06:04 INFO lr_2e-05 epoch 2 step 300/625 loss 1.1856
+2026-10-29 09:06:11 INFO lr_2e-05 epoch 2 step 400/625 loss 1.1844
+2026-10-29 09:06:18 INFO lr_2e-05 epoch 2 step 500/625 loss 1.1863
+2026-10-29 09:06:25 INFO lr_2e-05 epoch 2 step 600/625 loss 1.1867
+2026-10-29 09:06:27 INFO lr_2e-05 epoch 2: train loss 1.1861, dev Macro-F1 0.3218, Weighted-F1 0.5039 *best* (43s)
+2026-10-29 09:06:36 INFO lr_2e-05 epoch 3 step 100/625 loss 1.0245
+2026-10-29 09:06:43 INFO lr_2e-05 epoch 3 step 200/625 loss 1.0395
+2026-10-29 09:06:49 INFO lr_2e-05 epoch 3 step 300/625 loss 1.0460
+2026-10-29 09:06:56 INFO lr_2e-05 epoch 3 step 400/625 loss 1.0546
+2026-10-29 09:07:03 INFO lr_2e-05 epoch 3 step 500/625 loss 1.0420
+2026-10-29 09:07:10 INFO lr_2e-05 epoch 3 step 600/625 loss 1.0377
+2026-10-29 09:07:12 INFO lr_2e-05 epoch 3: train loss 1.0363, dev Macro-F1 0.3870, Weighted-F1 0.5297 *best* (43s)
+2026-10-29 09:07:21 INFO lr_2e-05 epoch 4 step 100/625 loss 0.9196
+2026-10-29 09:07:27 INFO lr_2e-05 epoch 4 step 200/625 loss 0.9123
+2026-10-29 09:07:34 INFO lr_2e-05 epoch 4 step 300/625 loss 0.9118
+2026-10-29 09:07:41 INFO lr_2e-05 epoch 4 step 400/625 loss 0.9165
+2026-10-29 09:07:48 INFO lr_2e-05 epoch 4 step 500/625 loss 0.9068
+2026-10-29 09:07:54 INFO lr_2e-05 epoch 4 step 600/625 loss 0.9114
+2026-10-29 09:07:56 INFO lr_2e-05 epoch 4: train loss 0.9118, dev Macro-F1 0.3808, Weighted-F1 0.5250 (42s)
+2026-10-29 09:08:05 INFO lr_2e-05 epoch 5 step 100/625 loss 0.8265
+2026-10-29 09:08:11 INFO lr_2e-05 epoch 5 step 200/625 loss 0.8287
+2026-10-29 09:08:18 INFO lr_2e-05 epoch 5 step 300/625 loss 0.8129
+2026-10-29 09:08:25 INFO lr_2e-05 epoch 5 step 400/625 loss 0.8057
+2026-10-29 09:08:32 INFO lr_2e-05 epoch 5 step 500/625 loss 0.8112
+2026-10-29 09:08:38 INFO lr_2e-05 epoch 5 step 600/625 loss 0.8149
+2026-10-29 09:08:40 INFO lr_2e-05 epoch 5: train loss 0.8145, dev Macro-F1 0.3939, Weighted-F1 0.5204 *best* (42s)
+2026-10-29 09:08:50 INFO lr_5e-05 epoch 1 step 100/625 loss 1.6247
+2026-10-29 09:08:57 INFO lr_5e-05 epoch 1 step 200/625 loss 1.5400
+2026-10-29 09:09:03 INFO lr_5e-05 epoch 1 step 300/625 loss 1.4772
+2026-10-29 09:09:10 INFO lr_5e-05 epoch 1 step 400/625 loss 1.4436
+2026-10-29 09:09:17 INFO lr_5e-05 epoch 1 step 500/625 loss 1.4178
+2026-10-29 09:09:24 INFO lr_5e-05 epoch 1 step 600/625 loss 1.4155
+2026-10-29 09:09:26 INFO lr_5e-05 epoch 1: train loss 1.4083, dev Macro-F1 0.2980, Weighted-F1 0.4754 *best* (43s)
+2026-10-29 09:09:35 INFO lr_5e-05 epoch 2 step 100/625 loss 1.2260
+2026-10-29 09:09:42 INFO lr_5e-05 epoch 2 step 200/625 loss 1.2258
+2026-10-29 09:09:48 INFO lr_5e-05 epoch 2 step 300/625 loss 1.2366
+2026-10-29 09:09:55 INFO lr_5e-05 epoch 2 step 400/625 loss 1.2370
+2026-10-29 09:10:02 INFO lr_5e-05 epoch 2 step 500/625 loss 1.2377
+2026-10-29 09:10:09 INFO lr_5e-05 epoch 2 step 600/625 loss 1.2389
+2026-10-29 09:10:11 INFO lr_5e-05 epoch 2: train loss 1.2382, dev Macro-F1 0.3054, Weighted-F1 0.4777 *best* (43s)
+2026-10-29 09:10:20 INFO lr_5e-05 epoch 3 step 100/625 loss 1.0337
+2026-10-29 09:10:27 INFO lr_5e-05 epoch 3 step 200/625 loss 1.0694
+2026-10-29 09:10:33 INFO lr_5e-05 epoch 3 step 300/625 loss 1.0797
+2026-10-29 09:10:40 INFO lr_5e-05 epoch 3 step 400/625 loss 1.0882
+2026-10-29 09:10:47 INFO lr_5e-05 epoch 3 step 500/625 loss 1.0801
+2026-10-29 09:10:54 INFO lr_5e-05 epoch 3 step 600/625 loss 1.0756
+2026-10-29 09:10:56 INFO lr_5e-05 epoch 3: train loss 1.0729, dev Macro-F1 0.3695, Weighted-F1 0.5160 *best* (43s)
+2026-10-29 09:11:05 INFO lr_5e-05 epoch 4 step 100/625 loss 0.9341
+2026-10-29 09:11:12 INFO lr_5e-05 epoch 4 step 200/625 loss 0.9141
+2026-10-29 09:11:18 INFO lr_5e-05 epoch 4 step 300/625 loss 0.9115
+2026-10-29 09:11:25 INFO lr_5e-05 epoch 4 step 400/625 loss 0.9123
+2026-10-29 09:11:32 INFO lr_5e-05 epoch 4 step 500/625 loss 0.9051
+2026-10-29 09:11:39 INFO lr_5e-05 epoch 4 step 600/625 loss 0.9112
+2026-10-29 09:11:41 INFO lr_5e-05 epoch 4: train loss 0.9105, dev Macro-F1 0.3545, Weighted-F1 0.4990 (43s)
+2026-10-29 09:11:49 INFO lr_5e-05 epoch 5 step 100/625 loss 0.7784
+2026-10-29 09:11:56 INFO lr_5e-05 epoch 5 step 200/625 loss 0.7702
+2026-10-29 09:12:03 INFO lr_5e-05 epoch 5 step 300/625 loss 0.7521
+2026-10-29 09:12:09 INFO lr_5e-05 epoch 5 step 400/625 loss 0.7465
+2026-10-29 09:12:16 INFO lr_5e-05 epoch 5 step 500/625 loss 0.7507
+2026-10-29 09:12:23 INFO lr_5e-05 epoch 5 step 600/625 loss 0.7575
+2026-10-29 09:12:25 INFO lr_5e-05 epoch 5: train loss 0.7569, dev Macro-F1 0.3931, Weighted-F1 0.5189 *best* (43s)
+2026-10-29 09:12:27 INFO selected lr=2e-05 epoch=5 dev Macro-F1=0.3939
+2026-10-29 09:12:28 INFO parameters: 124,651,015 total, 124,651,015 trainable
+2026-10-29 09:12:28 INFO [dev] Macro-F1 0.3939 Weighted-F1 0.5204
+2026-10-29 09:12:29 INFO [test] Macro-F1 0.4015 Weighted-F1 0.5655
+2026-10-29 09:12:32 INFO latency 9.49 ms/utterance (batch 1)
+2026-10-29 09:12:33 INFO run complete: outputs/runs/meld_roberta_fixed_k3_s43

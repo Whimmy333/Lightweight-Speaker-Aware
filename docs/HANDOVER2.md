@@ -36,7 +36,7 @@
 
 The TF-IDF logistic-regression baselines have one run each (not shown in the main comparison table). Checkpoints were selected on **development-set Macro-F1**. The source summary includes sample standard deviations, Weighted-F1, and per-class F1.
 
-**Main observation:** Adaptive achieves the highest mean test Macro-F1 on **MELD and DailyDialog**, and ranks second on **EmoryNLP**. The two wins are narrow: Adaptive exceeds the closest competitor by only **0.0015** Macro-F1 on each of MELD and DailyDialog. Without a significance test, these small differences should not be described as statistically significant improvements.
+**Main observation:** Adaptive achieves the highest mean test Macro-F1 on **MELD and DailyDialog**, and ranks second on **EmoryNLP**. The two wins are narrow: Adaptive exceeds the closest competitor by only **0.0015** Macro-F1 on each of MELD and DailyDialog. A paired bootstrap over all three seeds (README, "Results so far") later confirmed that neither gap is significant (p = 0.82 on MELD, p = 0.89 on DailyDialog), so they should not be described as improvements.
 
 ## 4\. Ablation: Does learned fusion matter?
 

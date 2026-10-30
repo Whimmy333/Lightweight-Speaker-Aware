@@ -9,7 +9,7 @@ The main controlled comparisons use **MELD** and **EmoryNLP**. We add **DailyDia
 
 DailyDialog does not provide explicit speaker IDs in the standard text release. Its experiments therefore use speaker-independent history fusion and do not test whether separating same-speaker history from other-speaker history helps.
 
-> **Status.** The original study (57 configurations on MELD, EmoryNLP and DailyDialog) has finished on the cluster; its results are in [outputs/results_summary.md](outputs/results_summary.md) and summarised under [Results so far](#results-so-far). The traditional term-weighting × classifier baselines have finished ([below](#traditional-baselines)); a second GPU batch (other encoders, the EmoryNLP single-utterance baseline and a hyper-parameter sweep) is next. Everything is on `main`; `feature/dailydialog-support` has been merged. **Preparing the video?** See [For the presentation: where to find things](#for-the-presentation-where-to-find-things).
+> **Status.** All 237 configurations have finished: the original study (57), the EmoryNLP single-utterance baseline, the other encoders, the traditional term-weighting × classifier baselines and the hyper-parameter sweep. Every run folder (without checkpoints) is in `outputs/runs/`; the results are in [outputs/results_summary.md](outputs/results_summary.md) and summarised under [Results so far](#results-so-far). Everything is on `main`; `feature/dailydialog-support` has been merged. **Preparing the video?** See [For the presentation: where to find things](#for-the-presentation-where-to-find-things).
 
 | Document | Purpose |
 |---|---|
@@ -96,20 +96,21 @@ Test Macro-F1 of the original study, k = 3, mean ± std over seeds 42, 43 and 44
 |---|---:|---:|---:|
 | Always predicting the most frequent class | 0.093 | 0.059 | 0.128 |
 | TF-IDF + LR | 0.360 | 0.286 | 0.437 |
-| Single-utterance DistilBERT | 0.437 ± 0.007 | second GPU batch | 0.478 ± 0.028 |
+| Single-utterance DistilBERT | 0.437 ± 0.007 | 0.270 ± 0.006 | 0.478 ± 0.028 |
 | Concatenation | 0.428 ± 0.012 | 0.292 ± 0.011 | 0.488 ± 0.022 |
 | Fixed fusion (equal weights) | 0.361 ± 0.008 | 0.248 ± 0.004 | 0.480 ± 0.012 |
 | Adaptive fusion (ours) | 0.438 ± 0.006 | 0.282 ± 0.007 | 0.489 ± 0.006 |
 
 DailyDialog has no speaker IDs, so its fusion models pool all history into one source (`fixed_merged`, `adaptive_merged`).
 
-- **The learned gate matters.** Adaptive fusion clearly beats fixed fusion. Replacing the trained gate with equal weights at inference drops MELD from 0.438 to 0.349.
-- **Context adds little.** Adaptive fusion ties the single-utterance model on MELD (0.438 vs 0.437) and concatenation elsewhere; the differences are within the seed spread.
-- **Speaker separation shows no clear gain** on MELD (0.438 separated vs 0.435 pooled).
+- **The learned gate matters.** Adaptive fusion beats fixed fusion by 0.077 on MELD (95% interval +0.056 to +0.098) and 0.035 on EmoryNLP (+0.017 to +0.053). Replacing the trained gate with equal weights at inference drops MELD from 0.438 to 0.349.
+- **Context adds little on MELD and DailyDialog.** Adaptive fusion vs the single-utterance model: +0.002 on MELD (p = 0.82) and +0.012 on DailyDialog (p = 0.29); vs concatenation: +0.010 on MELD (p = 0.23).
+- **On EmoryNLP, context helps.** Concatenation beats the single-utterance model by 0.022 (p = 0.009), adaptive fusion by 0.012 (p = 0.06). Its gate also gives history more weight than on MELD (23% vs 16% when all three sources exist). The single-utterance DistilBERT (0.270) is below TF-IDF + LR there.
+- **Speaker separation shows no clear gain** on MELD (0.438 separated vs 0.435 pooled, p = 0.56).
 - **Context length:** adaptive fusion rises slightly with k on MELD (0.434, 0.438, 0.443 for k = 1, 3, 5); concatenation stays flat.
 - **Cost:** on MELD, adaptive fusion takes 4.9 ms per utterance on the cluster GPU vs 4.0 ms for concatenation and single-utterance models.
 
-No significance test has been run yet, so small differences should not be called improvements.
+Significance: paired bootstrap on the saved test predictions, 10,000 resamples of test utterances; each resample scores both models on the same utterances for all three seeds and averages the seed-wise differences. Only the gaps to fixed fusion on MELD and EmoryNLP and EmoryNLP's concatenation vs single-utterance gap are significant at 0.05.
 
 ### Traditional baselines
 
@@ -127,16 +128,56 @@ Nineteen term weighting × classifier pairs per dataset, each reading the curren
 Bold: the pair selected on dev over all 19.
 
 - **A linear model is the best traditional classifier on every dataset**, although random forest comes within 0.001 on EmoryNLP; naive Bayes is the weakest.
-- **The pretrained encoder's lead depends on the dataset:** +0.056 on MELD, +0.013 on EmoryNLP and +0.004 on DailyDialog, where a linear SVM on term counts is level with DistilBERT.
+- **The pretrained encoder's lead depends on the dataset:** the best DistilBERT model is +0.056 on MELD, +0.013 on EmoryNLP and +0.004 on DailyDialog, where a linear SVM on term counts is level with DistilBERT. Without context, DistilBERT trails the selected pair on EmoryNLP (0.270 vs 0.279).
 - **The classifier matters more than the weighting.** BM25 is never the weighting dev selects for a linear model.
 
-Scores of every pair are in `outputs/runs/<dataset>_<weighting>_<classifier>/metrics_test.json`, every grid point in [outputs/hparams_grid.csv](outputs/hparams_grid.csv). They enter the "term weighting x classifier" tables of `outputs/results_summary.md` once the first batch's run folders are in the repository.
+Scores of every pair are in the "term weighting x classifier" tables of [outputs/results_summary.md](outputs/results_summary.md), every grid point in [outputs/hparams_grid.csv](outputs/hparams_grid.csv).
+
+### Other encoders
+
+MELD, k = 3, test Macro-F1 over three seeds. Every encoder sees the same word pieces under the same token budget, training settings and dev selection; recurrent encoders read DistilBERT's word-piece embeddings (frozen) and train for up to 10 epochs.
+
+| Encoder | Single | Concatenation | Fixed fusion | Adaptive fusion | Trained parameters | ms per utterance |
+|---|---:|---:|---:|---:|---:|---:|
+| DistilBERT | 0.437 ± 0.007 | 0.428 ± 0.012 | 0.361 ± 0.008 | 0.438 ± 0.006 | 66.4M | 4.0–4.9 |
+| BERT-base | 0.446 ± 0.004 | 0.459 ± 0.007 | 0.384 ± 0.002 | 0.457 ± 0.012 | 109.5M | 8.5–9.6 |
+| RoBERTa-base | 0.457 ± 0.002 | **0.470 ± 0.005** | 0.396 ± 0.007 | 0.468 ± 0.010 | 124.7M | 8.6–9.6 |
+| RNN | 0.354 ± 0.006 | 0.320 ± 0.002 | | | 0.26M | 1.0–1.4 |
+| Bidirectional RNN | 0.375 ± 0.005 | 0.322 ± 0.003 | | | 0.53M | 1.1–1.8 |
+| LSTM | 0.402 ± 0.005 | 0.396 ± 0.015 | | | 1.1M | 1.0–1.4 |
+| BiLSTM | 0.391 ± 0.009 | 0.391 ± 0.008 | 0.324 ± 0.005 | 0.391 ± 0.002 | 2.1M | 1.1–1.9 |
+| GRU | 0.412 ± 0.011 | 0.417 ± 0.009 | | | 0.79M | 1.0–1.4 |
+| Bidirectional GRU | 0.401 ± 0.012 | 0.406 ± 0.005 | | | 1.6M | 1.1–1.8 |
+
+Recurrent encoders also hold a frozen 23.4M word-piece embedding table. Latency is end to end at batch size 1 on one A40, from the fastest to the slowest architecture of each encoder.
+
+- **Larger encoders score higher, at twice the latency.** RoBERTa-base single beats DistilBERT single by 0.020 (p = 0.02); BERT-base by 0.010 (p = 0.21).
+- **The architecture ranking is the same for every Transformer.** Adaptive fusion and concatenation are level (BERT −0.002, RoBERTa −0.002, p ≥ 0.76), fixed fusion is 0.07 below adaptive (p < 0.001). With BERT and RoBERTa, both context models are about 0.011–0.014 above the single-utterance model (p = 0.07–0.16), a gain DistilBERT does not show.
+- **The gate behaves the same way in every Transformer:** it gives the current utterance 0.84 (DistilBERT), 0.84 (BERT) and 0.80 (RoBERTa) of the weight when all three sources exist. On BiLSTM it gives the current utterance all of the weight, so adaptive fusion equals the single-utterance model.
+- **Recurrent encoders are about four times faster than DistilBERT but at least 0.02 lower.** LSTM and GRU variants beat the best traditional model (0.382); the RNNs do not, and concatenating history hurts them (0.354 → 0.320 one-directional). Bidirectionality helps only the single-utterance RNN.
+
+### Hyper-parameter sweep
+
+MELD, DistilBERT, k = 3: one setting changed at a time around the reference (learning rate 2e-5, batch size 16, dropout 0.1). Each configuration trains its single learning rate and selects the epoch on dev. Test Macro-F1 over three seeds:
+
+| Setting | Single | Adaptive fusion |
+|---|---:|---:|
+| reference | 0.438 ± 0.004 | 0.438 ± 0.006 |
+| learning rate 1e-5 / 3e-5 / 5e-5 / 1e-4 | 0.424 / 0.442 / 0.432 / 0.427 | 0.417 / 0.430 / 0.438 / 0.415 |
+| batch size 8 / 32 | 0.430 / 0.426 | 0.447 / 0.425 |
+| dropout 0 / 0.3 | 0.432 / 0.428 | 0.448 / 0.430 |
+
+- **Learning rates from 2e-5 to 5e-5 form a plateau**; 1e-5 and 1e-4 lose 0.01–0.025.
+- **No change raises either model by more than 0.011**, and neither model wins under every setting: adaptive minus single ranges from −0.012 (learning rate 3e-5 and 1e-4) to +0.017 (batch size 8, dropout 0). The main comparison is therefore not an artefact of the chosen settings.
+- On dev, the best single change is dropout 0 for the single-utterance model (0.440 vs 0.428) and batch size 8 for adaptive fusion (0.448 vs 0.441); on test both stay within 0.01 of the reference.
+
+Every setting with dev and test scores is in [outputs/hparams_summary.md](outputs/hparams_summary.md) and `outputs/hparams_sweep.csv`.
 
 ---
 
 ## For the presentation: where to find things
 
-Everything below is on `main`. "Now" means the file is already in the repository. "After batch 1" needs the per-run folders of the first GPU batch, which are still on the cluster. "After batch 2" needs the second GPU batch ([docs/HANDOVER3.md](docs/HANDOVER3.md)). Rebuild the tables after new runs arrive (see the end of this section).
+Everything below is on `main`, including the run folders of both GPU batches. Rebuild the tables after new runs arrive (see the end of this section).
 
 **A: problem, audience and research questions (slides 1–4, 18–19)**
 
@@ -144,7 +185,7 @@ Everything below is on `main`. "Now" means the file is already in the repository
 |---|---|---|
 | Problem, audience, purpose | The group proposal (PDF, not in the repository); [Why this project is useful](#why-this-project-is-useful) | Now |
 | Problem statement and the three research questions | [docs/TECHNICAL.md §1](docs/TECHNICAL.md#1-problem-and-research-questions) | Now |
-| Answers to the research questions | [Results so far](#results-so-far), [docs/HANDOVER2.md §8](docs/HANDOVER2.md) | Now |
+| Answers to the research questions | [Results so far](#results-so-far) (with significance tests), [docs/HANDOVER2.md §8](docs/HANDOVER2.md) | Now |
 
 **B: idea, architecture, data and design choices (slides 5–9)**
 
@@ -155,7 +196,7 @@ Everything below is on `main`. "Now" means the file is already in the repository
 | Datasets, splits, labels, imbalance, duplicates | [docs/DATA.md](docs/DATA.md) (columns used, cleaning steps), [docs/TECHNICAL.md §2](docs/TECHNICAL.md#2-data), [outputs/data_audit.md](outputs/data_audit.md) | Now |
 | Training settings and why | [docs/TECHNICAL.md §5 and §9](docs/TECHNICAL.md#5-training-and-model-selection) | Now |
 | Parameter counts per model, full hyper-parameter table, learning rate and epoch each run selected | [outputs/model_details.md](outputs/model_details.md) (`python -m eval.model_details`); summary under [Model comparison](#model-comparison-other-encoders-and-traditional-baselines) | Now |
-| How hyper-parameters change results | [docs/HYPERPARAMETERS.md](docs/HYPERPARAMETERS.md), [outputs/hparams_summary.md](outputs/hparams_summary.md), [outputs/hparams_grid.csv](outputs/hparams_grid.csv) | Traditional models now; learning rate × epoch after batch 1; sweep after batch 2 |
+| How hyper-parameters change results | [docs/HYPERPARAMETERS.md](docs/HYPERPARAMETERS.md), [outputs/hparams_summary.md](outputs/hparams_summary.md), [outputs/hparams_grid.csv](outputs/hparams_grid.csv) | Now |
 | Engineering: pinned data, config generator, resumable runs, tests | [docs/TECHNICAL.md §10](docs/TECHNICAL.md#10-engineering-reproducibility-and-testing), [tests/](tests/) (`python -m pytest -q`: 114 tests) | Now |
 
 **C: experiments and results (slides 10–14)**
@@ -166,15 +207,15 @@ Everything below is on `main`. "Now" means the file is already in the repository
 | Main comparison, per-class F1, latency | [outputs/results_summary.md](outputs/results_summary.md) "main comparison" | Now |
 | Chart data (mean and std per model, dataset and k) | [outputs/results_summary.csv](outputs/results_summary.csv); per seed: [outputs/results_runs.csv](outputs/results_runs.csv) | Now |
 | Context length (k = 1, 3, 5) and ablations | [outputs/results_summary.md](outputs/results_summary.md) "context length", "ablations" | Now |
-| GPU time per configuration | [outputs/run_all_status.log](outputs/run_all_status.log) (7.75 h in total on one A40) | Now |
-| Other encoders (BERT, RoBERTa, RNN/LSTM/GRU) and term weighting × classifier | [Traditional baselines](#traditional-baselines); later `outputs/results_summary.md` "encoder comparison", "term weighting x classifier" and chart data in `outputs/results_comparison.csv` | Traditional models now; encoders after batch 2 |
+| GPU time per configuration | [outputs/run_all_status.log](outputs/run_all_status.log) (one A40: 7.75 h for the original study, 7.66 h for the second batch) | Now |
+| Other encoders (BERT, RoBERTa, RNN/LSTM/GRU), term weighting × classifier, sweep | [Other encoders](#other-encoders), [Traditional baselines](#traditional-baselines), [Hyper-parameter sweep](#hyper-parameter-sweep); `outputs/results_summary.md` "encoder comparison", "term weighting x classifier"; chart data in [outputs/results_comparison.csv](outputs/results_comparison.csv) | Now |
 
 **D: interpretation and demo (slides 15–17)**
 
 | Topic | Where | Status |
 |---|---|---|
 | What the results mean, what not to overstate | [docs/HANDOVER2.md](docs/HANDOVER2.md), [Results so far](#results-so-far) | Now |
-| Gate weights per utterance (how much the model trusts each source) | [outputs/runs/meld_adaptive_k3_s42/fusion_weights_test.csv](outputs/runs/meld_adaptive_k3_s42/fusion_weights_test.csv) (seed 42) | Now; other seeds after batch 1 |
+| Gate weights per utterance (how much the model trusts each source) | `outputs/runs/<dataset>_adaptive*_s<seed>/fusion_weights_test.csv`, e.g. [MELD seed 42](outputs/runs/meld_adaptive_k3_s42/fusion_weights_test.csv) | Now |
 | Limitations | [docs/TECHNICAL.md §11](docs/TECHNICAL.md#11-limitations-and-risks) | Now |
 | Live demo | [app/](app/) (`streamlit run app/streamlit_app.py`; setup in [app/README.md](app/README.md)) | Now |
 
@@ -186,7 +227,7 @@ python -m eval.model_details    # model_details.md
 python -m eval.hparams          # hparams_summary.md and hparams_*.csv
 ```
 
-Until the first batch's run folders are in the repository, `eval.aggregate` stops with an error instead of rebuilding `results_summary.*` from the few runs present locally; the committed cluster results stay as they are. `eval.model_details` and `eval.hparams` only write their own files.
+`eval.aggregate` stops with an error instead of rebuilding `results_summary.*` when runs listed in `outputs/results_runs.csv` are missing from `outputs/runs/`, so a partial checkout never overwrites the committed tables. `eval.model_details` and `eval.hparams` only write their own files.
 
 ---
 

@@ -1,0 +1,7 @@
+{
+  "lr": 5e-05,
+  "epoch": 3,
+  "dev_macro_f1": 0.42340683062733264,
+  "checkpoint": "outputs/runs/dailydialog_single_s43/lr_5e-05/checkpoints/best.pt",
+  "checkpoint_kept": true
+}

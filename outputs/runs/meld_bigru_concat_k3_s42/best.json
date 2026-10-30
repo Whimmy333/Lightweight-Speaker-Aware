@@ -1,0 +1,7 @@
+{
+  "lr": 0.003,
+  "epoch": 9,
+  "dev_macro_f1": 0.40182080332374454,
+  "checkpoint": "outputs/runs/meld_bigru_concat_k3_s42/lr_0.003/checkpoints/best.pt",
+  "checkpoint_kept": false
+}

@@ -1,0 +1,15 @@
+{
+  "n_samples": 300,
+  "batch_size": 1,
+  "ms_per_utterance": 8.404577922386428,
+  "ms_per_batch_mean": 8.404577922386428,
+  "ms_per_batch_p50": 8.3955111913383,
+  "ms_per_batch_p95": 8.552406937815249,
+  "hardware": {
+    "device": "cuda",
+    "cpu": "x86_64",
+    "torch_threads": 4,
+    "gpu": "NVIDIA A40"
+  },
+  "includes": "tokenisation + forward pass + argmax (history context built from the same records)"
+}

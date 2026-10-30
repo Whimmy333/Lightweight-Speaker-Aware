@@ -1,0 +1,28 @@
+2026-10-29 12:49:58 INFO run meld_sweep_single_bs32_s43 on cuda (amp=torch.bfloat16), model=sweep_single_bs32, k=0, lrs=[2e-05]
+2026-10-29 12:49:58 INFO utterances: {'train': 9989, 'dev': 1109, 'test': 2610}
+2026-10-29 12:50:04 INFO lr_2e-05 epoch 1 step 100/313 loss 1.6184
+2026-10-29 12:50:08 INFO lr_2e-05 epoch 1 step 200/313 loss 1.4031
+2026-10-29 12:50:11 INFO lr_2e-05 epoch 1 step 300/313 loss 1.3230
+2026-10-29 12:50:12 INFO lr_2e-05 epoch 1: train loss 1.3128, dev Macro-F1 0.3458, Weighted-F1 0.5447 *best* (12s)
+2026-10-29 12:50:17 INFO lr_2e-05 epoch 2 step 100/313 loss 1.0440
+2026-10-29 12:50:21 INFO lr_2e-05 epoch 2 step 200/313 loss 1.0467
+2026-10-29 12:50:25 INFO lr_2e-05 epoch 2 step 300/313 loss 1.0406
+2026-10-29 12:50:25 INFO lr_2e-05 epoch 2: train loss 1.0390, dev Macro-F1 0.3714, Weighted-F1 0.5642 *best* (12s)
+2026-10-29 12:50:30 INFO lr_2e-05 epoch 3 step 100/313 loss 0.8957
+2026-10-29 12:50:34 INFO lr_2e-05 epoch 3 step 200/313 loss 0.8916
+2026-10-29 12:50:38 INFO lr_2e-05 epoch 3 step 300/313 loss 0.8959
+2026-10-29 12:50:39 INFO lr_2e-05 epoch 3: train loss 0.8968, dev Macro-F1 0.4190, Weighted-F1 0.5737 *best* (12s)
+2026-10-29 12:50:44 INFO lr_2e-05 epoch 4 step 100/313 loss 0.7804
+2026-10-29 12:50:47 INFO lr_2e-05 epoch 4 step 200/313 loss 0.7833
+2026-10-29 12:50:51 INFO lr_2e-05 epoch 4 step 300/313 loss 0.7789
+2026-10-29 12:50:52 INFO lr_2e-05 epoch 4: train loss 0.7808, dev Macro-F1 0.4035, Weighted-F1 0.5739 (12s)
+2026-10-29 12:50:56 INFO lr_2e-05 epoch 5 step 100/313 loss 0.7085
+2026-10-29 12:51:00 INFO lr_2e-05 epoch 5 step 200/313 loss 0.6846
+2026-10-29 12:51:04 INFO lr_2e-05 epoch 5 step 300/313 loss 0.6951
+2026-10-29 12:51:05 INFO lr_2e-05 epoch 5: train loss 0.6942, dev Macro-F1 0.4130, Weighted-F1 0.5723 (12s)
+2026-10-29 12:51:06 INFO selected lr=2e-05 epoch=3 dev Macro-F1=0.4190
+2026-10-29 12:51:06 INFO parameters: 66,368,263 total, 66,368,263 trainable
+2026-10-29 12:51:06 INFO [dev] Macro-F1 0.4190 Weighted-F1 0.5737
+2026-10-29 12:51:06 INFO [test] Macro-F1 0.4176 Weighted-F1 0.6192
+2026-10-29 12:51:08 INFO latency 4.30 ms/utterance (batch 1)
+2026-10-29 12:51:08 INFO run complete: outputs/runs/meld_sweep_single_bs32_s43

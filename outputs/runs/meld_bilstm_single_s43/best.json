@@ -1,0 +1,7 @@
+{
+  "lr": 0.003,
+  "epoch": 6,
+  "dev_macro_f1": 0.3799095308869608,
+  "checkpoint": "outputs/runs/meld_bilstm_single_s43/lr_0.003/checkpoints/best.pt",
+  "checkpoint_kept": false
+}

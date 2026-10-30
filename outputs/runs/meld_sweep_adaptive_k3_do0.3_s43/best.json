@@ -1,0 +1,7 @@
+{
+  "lr": 2e-05,
+  "epoch": 3,
+  "dev_macro_f1": 0.4265555609853714,
+  "checkpoint": "outputs/runs/meld_sweep_adaptive_k3_do0.3_s43/lr_2e-05/checkpoints/best.pt",
+  "checkpoint_kept": false
+}

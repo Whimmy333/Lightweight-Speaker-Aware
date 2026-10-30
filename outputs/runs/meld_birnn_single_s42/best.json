@@ -1,0 +1,7 @@
+{
+  "lr": 0.001,
+  "epoch": 10,
+  "dev_macro_f1": 0.3660046716390092,
+  "checkpoint": "outputs/runs/meld_birnn_single_s42/lr_0.001/checkpoints/best.pt",
+  "checkpoint_kept": false
+}

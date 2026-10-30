@@ -1,0 +1,7 @@
+{
+  "lr": 2e-05,
+  "epoch": 2,
+  "dev_macro_f1": 0.42404114071845406,
+  "checkpoint": "outputs/runs/meld_sweep_single_lr2e-05_s42/lr_2e-05/checkpoints/best.pt",
+  "checkpoint_kept": false
+}

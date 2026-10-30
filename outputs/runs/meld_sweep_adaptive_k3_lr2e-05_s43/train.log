@@ -1,0 +1,43 @@
+2026-10-29 12:58:03 INFO run meld_sweep_adaptive_k3_lr2e-05_s43 on cuda (amp=torch.bfloat16), model=sweep_adaptive_lr2e-05, k=3, lrs=[2e-05]
+2026-10-29 12:58:04 INFO utterances: {'train': 9989, 'dev': 1109, 'test': 2610}
+2026-10-29 12:58:11 INFO lr_2e-05 epoch 1 step 100/625 loss 1.6755
+2026-10-29 12:58:15 INFO lr_2e-05 epoch 1 step 200/625 loss 1.5521
+2026-10-29 12:58:19 INFO lr_2e-05 epoch 1 step 300/625 loss 1.4467
+2026-10-29 12:58:23 INFO lr_2e-05 epoch 1 step 400/625 loss 1.3741
+2026-10-29 12:58:28 INFO lr_2e-05 epoch 1 step 500/625 loss 1.3287
+2026-10-29 12:58:32 INFO lr_2e-05 epoch 1 step 600/625 loss 1.3046
+2026-10-29 12:58:33 INFO lr_2e-05 epoch 1: train loss 1.2960, dev Macro-F1 0.3497, Weighted-F1 0.5471 *best* (28s)
+2026-10-29 12:58:39 INFO lr_2e-05 epoch 2 step 100/625 loss 1.0359
+2026-10-29 12:58:43 INFO lr_2e-05 epoch 2 step 200/625 loss 1.0236
+2026-10-29 12:58:47 INFO lr_2e-05 epoch 2 step 300/625 loss 1.0262
+2026-10-29 12:58:51 INFO lr_2e-05 epoch 2 step 400/625 loss 1.0213
+2026-10-29 12:58:55 INFO lr_2e-05 epoch 2 step 500/625 loss 1.0154
+2026-10-29 12:59:00 INFO lr_2e-05 epoch 2 step 600/625 loss 1.0140
+2026-10-29 12:59:01 INFO lr_2e-05 epoch 2: train loss 1.0133, dev Macro-F1 0.3864, Weighted-F1 0.5660 *best* (27s)
+2026-10-29 12:59:06 INFO lr_2e-05 epoch 3 step 100/625 loss 0.8193
+2026-10-29 12:59:11 INFO lr_2e-05 epoch 3 step 200/625 loss 0.8279
+2026-10-29 12:59:15 INFO lr_2e-05 epoch 3 step 300/625 loss 0.8247
+2026-10-29 12:59:19 INFO lr_2e-05 epoch 3 step 400/625 loss 0.8262
+2026-10-29 12:59:23 INFO lr_2e-05 epoch 3 step 500/625 loss 0.8292
+2026-10-29 12:59:28 INFO lr_2e-05 epoch 3 step 600/625 loss 0.8235
+2026-10-29 12:59:29 INFO lr_2e-05 epoch 3: train loss 0.8242, dev Macro-F1 0.4163, Weighted-F1 0.5849 *best* (27s)
+2026-10-29 12:59:34 INFO lr_2e-05 epoch 4 step 100/625 loss 0.6853
+2026-10-29 12:59:38 INFO lr_2e-05 epoch 4 step 200/625 loss 0.6668
+2026-10-29 12:59:42 INFO lr_2e-05 epoch 4 step 300/625 loss 0.6717
+2026-10-29 12:59:47 INFO lr_2e-05 epoch 4 step 400/625 loss 0.6709
+2026-10-29 12:59:51 INFO lr_2e-05 epoch 4 step 500/625 loss 0.6671
+2026-10-29 12:59:55 INFO lr_2e-05 epoch 4 step 600/625 loss 0.6683
+2026-10-29 12:59:56 INFO lr_2e-05 epoch 4: train loss 0.6690, dev Macro-F1 0.4199, Weighted-F1 0.5748 *best* (26s)
+2026-10-29 13:00:02 INFO lr_2e-05 epoch 5 step 100/625 loss 0.5877
+2026-10-29 13:00:06 INFO lr_2e-05 epoch 5 step 200/625 loss 0.5806
+2026-10-29 13:00:10 INFO lr_2e-05 epoch 5 step 300/625 loss 0.5581
+2026-10-29 13:00:14 INFO lr_2e-05 epoch 5 step 400/625 loss 0.5494
+2026-10-29 13:00:19 INFO lr_2e-05 epoch 5 step 500/625 loss 0.5592
+2026-10-29 13:00:23 INFO lr_2e-05 epoch 5 step 600/625 loss 0.5593
+2026-10-29 13:00:24 INFO lr_2e-05 epoch 5: train loss 0.5570, dev Macro-F1 0.4354, Weighted-F1 0.5808 *best* (27s)
+2026-10-29 13:00:25 INFO selected lr=2e-05 epoch=5 dev Macro-F1=0.4354
+2026-10-29 13:00:26 INFO parameters: 66,959,882 total, 66,959,882 trainable
+2026-10-29 13:00:26 INFO [dev] Macro-F1 0.4354 Weighted-F1 0.5808
+2026-10-29 13:00:27 INFO [test] Macro-F1 0.4435 Weighted-F1 0.6172
+2026-10-29 13:00:28 INFO latency 5.11 ms/utterance (batch 1)
+2026-10-29 13:00:28 INFO run complete: outputs/runs/meld_sweep_adaptive_k3_lr2e-05_s43

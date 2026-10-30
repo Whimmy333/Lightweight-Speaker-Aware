@@ -1,0 +1,7 @@
+{
+  "lr": 0.003,
+  "epoch": 7,
+  "dev_macro_f1": 0.38552458673420303,
+  "checkpoint": "outputs/runs/meld_lstm_concat_k3_s44/lr_0.003/checkpoints/best.pt",
+  "checkpoint_kept": false
+}

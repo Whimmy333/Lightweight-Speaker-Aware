@@ -1,0 +1,7 @@
+{
+  "lr": 2e-05,
+  "epoch": 4,
+  "dev_macro_f1": 0.3065147586335138,
+  "checkpoint": "outputs/runs/emorynlp_adaptive_k3_s43/lr_2e-05/checkpoints/best.pt",
+  "checkpoint_kept": true
+}

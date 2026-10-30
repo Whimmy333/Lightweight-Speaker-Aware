@@ -1,0 +1,43 @@
+run_name: meld_roberta_fixed_k3_s42
+seed: 42
+data:
+  dataset: meld
+  processed_dir: data/processed
+  max_samples: null
+model:
+  name: roberta_fixed
+  type: fusion
+  fusion:
+    weighting: equal
+    speaker_split: true
+  pretrained: data/pretrained/roberta-base
+  utterance_pooling: cls
+  dropout: 0.1
+  arch: fixed
+  backbone: roberta
+context:
+  num_turns: 3
+  max_utt_tokens: 80
+train:
+  lrs:
+  - 2.0e-05
+  - 5.0e-05
+  epochs: 5
+  batch_size: 16
+  eval_batch_size: 64
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_grad_norm: 1.0
+  patience: null
+  amp: true
+  device: auto
+  resume: true
+  log_every: 100
+save:
+  keep_best_checkpoint: false
+  prune_unselected: true
+latency:
+  batch_size: 1
+  max_samples: 300
+  warmup: 10
+output_dir: outputs/runs/meld_roberta_fixed_k3_s42

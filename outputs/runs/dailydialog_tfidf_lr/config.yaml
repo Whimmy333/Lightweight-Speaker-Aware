@@ -1,0 +1,34 @@
+run_name: dailydialog_tfidf_lr
+seed: 42
+data:
+  dataset: dailydialog
+  processed_dir: data/processed
+model:
+  name: tfidf_lr
+  type: tfidf_lr
+tfidf_lr:
+  sublinear_tf: true
+  max_iter: 2000
+  grid:
+    ngram_range:
+    - - 1
+      - 1
+    - - 1
+      - 2
+    min_df:
+    - 1
+    - 2
+    C:
+    - 0.1
+    - 0.3
+    - 1.0
+    - 3.0
+    - 10.0
+    class_weight:
+    - null
+    - balanced
+latency:
+  batch_size: 1
+  max_samples: 300
+  warmup: 10
+output_dir: outputs/runs/dailydialog_tfidf_lr

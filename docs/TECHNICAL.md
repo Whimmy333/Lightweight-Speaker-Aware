@@ -286,8 +286,8 @@ All models report through the same code in `eval/`:
 - **Sensitivity**: `outputs/flagged_dialogues.csv` lists the dialogues to drop from dev/test for a check
   that the conclusions do not depend on re-used scenes.
 
-Not yet implemented: a significance test. Section 12 recommends a paired bootstrap on the saved test
-predictions.
+- **Significance**: paired bootstrap on the saved test predictions, resampling test utterances and
+  pairing seeds (results in Section 8).
 
 ## 7. Experiment matrix and compute
 
@@ -307,12 +307,12 @@ predictions.
 | Traditional baselines (CPU) | 4 weightings × 5 classifiers − TF-IDF + LR, × 3 datasets | 57 |
 | MELD hyper-parameter sweep (k=3) | single, adaptive × (5 learning rates, 2 batch sizes, 2 dropouts) × 3 seeds | 54 |
 
-The first six groups (57 configurations) are the original study and have finished. Each neural
-configuration trains once per learning rate (two), for up to 5 epochs (10 for recurrent encoders).
-`run_all.sh` runs the groups in this priority order, so the main comparison finishes first.
-The runs are planned on one NVIDIA A40 of NTU EEE Cluster 02 (`cluster/train.sbatch`); all training jobs
-use the same GPU model, so latencies are comparable. GPU time has not been measured yet. Each epoch's
-duration is logged, so the first finished run gives a reliable estimate. Disk use is about 0.25 GB per finished run (one checkpoint), about 11 GB in total.
+The first six groups (57 configurations) are the original study; all 237 configurations have finished.
+Each neural configuration trains once per learning rate (two; one in the sweep), for up to 5 epochs (10 for
+recurrent encoders). `run_all.sh` runs the groups in this priority order, so the main comparison finishes
+first. All GPU runs used one NVIDIA A40 of NTU EEE Cluster 02 (`cluster/train.sbatch`), so latencies are
+comparable: 7.75 h for the original study and 7.66 h for the second batch (Transformer encoders 2.96 h,
+recurrent encoders 2.30 h, sweep 2.19 h, EmoryNLP single 0.22 h; per run in `outputs/run_all_status.log`). Disk use is about 0.25 GB per finished run (one checkpoint), about 11 GB in total.
 
 ## 8. Results so far
 
@@ -323,14 +323,42 @@ three seeds (full tables, per-class F1 and latency in `outputs/results_summary.m
 | model | MELD | EmoryNLP | DailyDialog |
 |---|---:|---:|---:|
 | TF-IDF + LR | 0.360 | 0.286 | 0.437 |
-| single-utterance DistilBERT | 0.437 ± 0.007 | second GPU batch | 0.478 ± 0.028 |
+| single-utterance DistilBERT | 0.437 ± 0.007 | 0.270 ± 0.006 | 0.478 ± 0.028 |
 | concatenation | 0.428 ± 0.012 | 0.292 ± 0.011 | 0.488 ± 0.022 |
 | fixed fusion | 0.361 ± 0.008 | 0.248 ± 0.004 | 0.480 ± 0.012 (merged) |
 | adaptive fusion | 0.438 ± 0.006 | 0.282 ± 0.007 | 0.489 ± 0.006 (merged) |
 
 The learned gate matters (fixed fusion is far below adaptive, and swapping equal weights into the trained
-adaptive model drops MELD to 0.349), but context adds little over the single-utterance model, and speaker
-separation shows no clear gain (MELD 0.438 vs 0.435 merged). No significance test has been run yet.
+adaptive model drops MELD to 0.349), but context adds little over the single-utterance model on MELD and
+DailyDialog, and speaker separation shows no clear gain (MELD 0.438 vs 0.435 merged). EmoryNLP is the
+exception: concatenation beats the single-utterance model there, and the gate gives history 23% of the weight
+when all three sources exist (16% on MELD).
+
+Significance comes from a paired bootstrap on the saved test predictions: 10,000 resamples of test
+utterances, each scoring both models on the same utterances for all three seeds and averaging the seed-wise
+differences.
+
+| comparison | MELD | EmoryNLP | DailyDialog |
+|---|---|---|---|
+| adaptive − single | +0.002 (p = 0.82) | +0.012 (p = 0.06) | +0.012 (p = 0.29) |
+| adaptive − concat | +0.010 (p = 0.23) | −0.010 (p = 0.23) | +0.002 (p = 0.89) |
+| adaptive − fixed | **+0.077** (+0.056 to +0.098) | **+0.035** (+0.017 to +0.053) | +0.009 (p = 0.51) |
+| concat − single | −0.009 (p = 0.22) | **+0.022** (p = 0.009) | |
+| adaptive − adaptive merged | +0.003 (p = 0.56) | | |
+
+On MELD the gate is stable across seeds (current-utterance weight 0.84, 0.85, 0.84) and does not depend on
+utterance length (correlation −0.01 to +0.01). Short replies (three words or fewer, 27% of the test set)
+score 0.506 for single, concatenation and adaptive fusion alike; the seed-42 lead of concatenation on them
+(+0.040) does not repeat on seeds 43 and 44.
+
+The encoder comparison (MELD, k = 3) keeps the same ranking for BERT-base and RoBERTa-base: adaptive fusion
+and concatenation are level (difference −0.002, p ≥ 0.76), both about 0.011–0.014 above the single-utterance
+model (p = 0.07–0.16), and fixed fusion is 0.07 below (p < 0.001). RoBERTa-base concatenation is the best
+model overall (0.470 ± 0.005); RoBERTa single beats DistilBERT single by 0.020 (p = 0.02) at about twice
+the latency (8.6 vs 4.0 ms). Recurrent encoders reach at most 0.417 (GRU, concatenation) at about 1 ms per
+utterance; the BiLSTM gate puts all of its weight on the current utterance. The sweep around the reference
+setting changes no model by more than +0.011, and the adaptive − single difference ranges from −0.012 to
++0.017 across settings (README, "Hyper-parameter sweep").
 
 The traditional baselines (Section 4) have finished. The pair selected on dev over all 19 reaches 0.382 on
 MELD (TF-IDF + linear SVM), 0.279 on EmoryNLP (TF + LR) and 0.485 on DailyDialog (TF + linear SVM).
@@ -413,8 +441,8 @@ configurations); those smoke-test scores carry no information about model qualit
 - **Domain.** Both corpora come from one TV series, so conclusions concern scripted sitcom dialogue.
   Transfer to customer-service conversations remains an open question.
 - **Learning rate of the gate.** The gate trains with the same small learning rate as the encoder and
-  starts from equal weights, so it may stay close to equal weights. The first results should be checked
-  for this in `fusion_weights_test.csv`.
+  starts from equal weights. It does move away from them (MELD: 0.84 on the current utterance when all three
+  sources exist, on every seed), but it then varies little between utterances (10–90% range 0.79–0.88).
 - **Label noise and ambiguity.** Many identical texts have different gold labels, and re-used scenes are
   labelled inconsistently (Section 2.4). This caps attainable scores and adds variance to minority classes.
 - **Hardware.** Training is planned on NTU EEE Cluster 02 with NVIDIA A40 GPUs (bf16). The fp16
@@ -427,15 +455,12 @@ configurations); those smoke-test scores carry no information about model qualit
 
 ## 12. Next steps
 
-1. Run the experiments on NTU EEE Cluster 02 with the job scripts in `cluster/` (see `docs/HANDOVER.md`).
-2. Fill the results tables from `outputs/results_summary.md`; report mean ± std over seeds and latency.
-3. Add a paired bootstrap test on the saved test predictions for the key comparisons (adaptive vs fixed,
-   adaptive vs concat).
-4. Error analysis on short utterances, minority classes and speaker emotion changes, using
-   `predictions_test.csv` and `fusion_weights_test.csv`; repeat the key numbers without the flagged
-   dialogues.
-5. Streamlit demo that loads the selected checkpoints and shows per-utterance predictions, context and
-   fusion weights.
+Done: all 237 runs, the results tables, the paired bootstrap for the key comparisons, the short-utterance
+check and the Streamlit demo (`app/`). Still open:
+
+1. Error analysis on minority classes and speaker emotion changes, using `predictions_test.csv` and
+   `fusion_weights_test.csv`.
+2. Repeat the key numbers without the flagged dialogues (`outputs/flagged_dialogues.csv`).
 
 ## 13. References
 
