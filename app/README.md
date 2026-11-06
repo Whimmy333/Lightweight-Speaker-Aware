@@ -15,7 +15,7 @@ Runs on a laptop CPU. No GPU, no network needed once data and checkpoints are lo
 
 | Feature | Needs |
 |---|---|
-| Results tab (all charts, the “How lightweight is it?” panel and the table) | nothing — reads `outputs/results_summary.csv` and the configs |
+| Results tab (all charts, the “Where does the learned gate look?” and “How lightweight is it?” panels, the table) | nothing — reads `outputs/results_summary.csv`, the configs and the committed `fusion_weights_test.csv` of every seed |
 | Featured dialogues and “Write your own” (TF-IDF needs the row below; neural models need theirs) | nothing to show the text |
 | MELD / EmoryNLP test-set dialogues with gold labels | nothing — falls back to the committed `outputs/runs/<ds>_tfidf_lr/predictions_test.csv` |
 | **TF-IDF + LR live predictions** | `python prepare_data.py` once (training data), then `python -m app.warm_cache` (re-runs the configured grid from `models/tfidf_lr.py`, ~1–2 min per dataset on a laptop, longer for DailyDialog; cached in `outputs/demo_cache/`). Without the warm-up the app trains on first use behind a spinner. Reproduces the committed baseline exactly (identical MELD and EmoryNLP test predictions). |
@@ -73,3 +73,6 @@ rsync -av --include='*/' --include='best.json' --include='config.yaml' --include
   The paired templates (“Fine.”, “Really?”) probe whether a model uses context; with these checkpoints the
   label mostly stays the same in both contexts.
 - Adaptive and Single are within the seed-to-seed spread on MELD test Macro-F1 (Results tab).
+- The Results tab's gate panel averages the per-utterance gate weights over the test set and the three seeds:
+  on MELD the current line gets 84% when both kinds of history exist (own earlier turns 11%, other speakers 5%),
+  against 33% each for fixed fusion; 88% across all test lines.

@@ -240,6 +240,42 @@ def test_saved_predictor_replays_cluster_outputs(tmp_path, speaker_split):
     assert np.allclose(pred.weights, w[[4, 0, 2]]) and (pred.avail == avail[[4, 0, 2]]).all()
 
 
+
+@pytest.mark.parametrize("speaker_split", [True, False])
+def test_gate_summary_groups_and_averages_seeds(tmp_path, speaker_split):
+    import pandas as pd
+    from tests.conftest import make_record
+
+    recs = [make_record("dia3", t, [s], f"line {t}", split="test") for t, s in enumerate("ABAAB")]
+    runs = tmp_path / "runs"
+    for seed in (42, 43):
+        _write_saved_run(runs / f"meld_adaptive_k3_s{seed}", recs, speaker_split)
+    model = "adaptive" if speaker_split else "adaptive_merged"
+    if not speaker_split:  # the merged run is a different config: copy the files under its name
+        for seed in (42, 43):
+            (runs / f"meld_adaptive_k3_s{seed}").rename(runs / f"meld_adaptive_merged_k3_s{seed}")
+    g = core.gate_summary("meld", model, 3, runs_dir=runs).set_index("group")
+    d = pd.read_csv(runs / f"meld_{model}_k3_s42" / "fusion_weights_test.csv")
+    assert g.loc["all test lines", "n"] == len(recs) and (g["n_seeds"] == 2).all()
+    assert g.loc["first turn (no history)", "current"] == pytest.approx(1.0)
+    assert g.drop("all test lines")["share"].sum() == pytest.approx(1.0)
+    assert g.loc["all test lines", "current"] == pytest.approx(d["w_current"].mean())
+    srcs = core.SOURCE_NAMES[3 if speaker_split else 2]
+    assert np.allclose(g[srcs].sum(axis=1), 1.0)
+    assert (g["spread"] == 0).all()  # both seeds wrote the same weights
+
+
+def test_gate_summary_matches_reported_meld_numbers():
+    """The README reports these: 84% on the current line when all three sources exist, own past 2x others'."""
+    if not (core.RUNS_DIR / "meld_adaptive_k3_s44" / "fusion_weights_test.csv").is_file():
+        pytest.skip("MELD adaptive fusion weights not in outputs/runs/")
+    g = core.gate_summary("meld", "adaptive", 3).set_index("group")
+    top = g.loc["all three sources"]
+    assert (top["current"], top["same speaker"], top["other speaker"]) == pytest.approx((0.84, 0.11, 0.05), abs=0.006)
+    assert top["same speaker"] / top["other speaker"] == pytest.approx(2, abs=0.2)
+    assert int(top["n"]) == 1369 and int(g.loc["current + one history group", "n"]) == 961
+    assert int(g.loc["first turn (no history)", "n"]) == 280 and g["spread"].max() < 0.01
+
 def test_checkpoint_wins_over_saved_csvs(tmp_path, tiny_encoder, monkeypatch):
     from tests.conftest import make_record
 
