@@ -1,0 +1,18 @@
+# Dependencies for hosting Undertone (app/undertone_app.py) on Streamlit Community Cloud.
+# Streamlit Cloud reads this file because it sits next to the entrypoint. Choose Python 3.12 when deploying:
+# the CPU-only PyTorch wheel below is for Linux x86_64 and Python 3.12. For local work use ../requirements.txt.
+torch @ https://download.pytorch.org/whl/cpu/torch-2.5.1%2Bcpu-cp312-cp312-linux_x86_64.whl
+transformers==4.46.3
+tokenizers==0.20.3
+huggingface-hub==0.26.2
+safetensors==0.4.5
+numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.5.2
+scipy==1.13.1
+joblib==1.4.2
+PyYAML==6.0.2
+tqdm==4.67.1
+streamlit==1.40.2
+plotly==5.24.1
+pyarrow==18.1.0

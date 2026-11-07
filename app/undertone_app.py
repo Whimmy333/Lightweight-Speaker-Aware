@@ -32,6 +32,20 @@ from data.loaders import LABELS  # noqa: E402
 st.set_page_config(page_title="Undertone · read the mood of a chat", page_icon="💞", layout="wide",
                    initial_sidebar_state="collapsed")
 
+
+@st.cache_resource(show_spinner=False)
+def _fetch_models() -> list:
+    """First start on a fresh host (e.g. Streamlit Community Cloud): download the models; no-op locally."""
+    from app import remote_assets
+    if not remote_assets.missing():
+        return []
+    with st.spinner("Setting up the models for the first visit (about a minute)…"):
+        return remote_assets.ensure()
+
+
+for _problem in _fetch_models():
+    st.warning(f"Could not download a model ({_problem}); Undertone runs with what is available.")
+
 DATASET, K, SEED = "meld", core.DEMO_K, core.DEMO_SEED
 LABELS_MELD = LABELS[DATASET]
 ENGINES = ["tfidf_lr", "single", "concat", "fixed", "adaptive"]
