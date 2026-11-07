@@ -9,6 +9,8 @@ The main controlled comparisons use **MELD** and **EmoryNLP**. We add **DailyDia
 
 DailyDialog does not provide explicit speaker IDs in the standard text release. Its experiments therefore use speaker-independent history weighting and do not test whether separating same-speaker history from other-speaker history helps.
 
+**Live demo: [Undertone](https://lightweight-speaker-aware-undertone-group33.streamlit.app/)** reads the mood of any chat with our adaptive weighting model. No installation needed; to run it yourself, see [Run Undertone yourself](#run-undertone-yourself).
+
 > **Status.** All 237 configurations have finished: the original study (57), the EmoryNLP single-utterance baseline, the other encoders, the traditional term-weighting × classifier baselines and the hyper-parameter sweep. Every run folder (without checkpoints) is in `outputs/runs/`; the results are in [outputs/results_summary.md](outputs/results_summary.md) and summarised under [Results so far](#results-so-far). Everything is on `main`; `feature/dailydialog-support` has been merged. **Preparing the video?** See [For the presentation: how to say it](#for-the-presentation-how-to-say-it) and [where to find things](#for-the-presentation-where-to-find-things).
 
 | Document | Purpose |
@@ -106,6 +108,30 @@ MELD and EmoryNLP downloads use pinned revisions and SHA-256 checks. DailyDialog
 DistilBERT uses a pinned Hugging Face revision. Training should use the prepared local encoder rather than requiring network access during model training.
 
 ---
+
+## Run Undertone yourself
+
+**Online:** open [https://lightweight-speaker-aware-undertone-group33.streamlit.app/](https://lightweight-speaker-aware-undertone-group33.streamlit.app/). Nothing to install. If the app has been asleep, the first visit loads the models, which takes about a minute.
+
+**On your laptop** (Python 3.12):
+
+```bash
+git clone https://github.com/Whimmy333/Lightweight-Speaker-Aware.git
+cd Lightweight-Speaker-Aware
+python3.12 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+streamlit run app/undertone_app.py
+```
+
+The app opens at http://localhost:8501. On the first start it downloads what the repository does not contain, about 800 MB in total: the Single and Adaptive weighting checkpoints (MELD, seed 42) from the [`models-v1` release](https://github.com/Whimmy333/Lightweight-Speaker-Aware/releases/tag/models-v1), and DistilBERT from the Hugging Face Hub. On Linux without a GPU, install `app/requirements.txt` instead for the smaller CPU-only PyTorch build.
+
+**Using it:**
+- **Read a chat:** pick an example chat, paste your own as one `Name: message` line per message, or open a real *Friends* scene from the MELD test set to compare with the dataset's labels. Each message gets a mood and a bar showing how much of the reading came from the message itself, the writer's earlier messages and the other person's messages (the gate weights).
+- **Under the hood:** all models side by side on the same chat.
+- **Does it work?:** test scores, where the gate looks, and the limits.
+
+The research demo with every model and dataset runs with `streamlit run app/streamlit_app.py`; see [app/README.md](app/README.md).
 
 ## Results so far
 
