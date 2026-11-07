@@ -368,7 +368,7 @@ Everything below is on `main`, including the run folders of both GPU batches. Re
 | What the results mean, what not to overstate | [For the presentation: how to say it](#for-the-presentation-how-to-say-it), [docs/HANDOVER2.md](docs/HANDOVER2.md) | Now |
 | Gate weights per utterance (how much the model trusts each source) | [Inside the adaptive gate](#inside-the-adaptive-gate); `outputs/runs/<dataset>_adaptive*_s<seed>/fusion_weights_test.csv`, e.g. [MELD seed 42](outputs/runs/meld_adaptive_k3_s42/fusion_weights_test.csv) | Now |
 | Limitations | [docs/TECHNICAL.md §11](docs/TECHNICAL.md#11-limitations-and-risks) | Now |
-| Live demo | [app/](app/) (`streamlit run app/streamlit_app.py`; setup in [app/README.md](app/README.md)) | Now |
+| Live demo | [app/](app/) (`streamlit run app/streamlit_app.py`, or the consumer-style `app/undertone_app.py`; setup in [app/README.md](app/README.md)) | Now |
 
 **Rebuilding the tables.** Each command reads `outputs/runs/`, so run it after pulling new run folders:
 

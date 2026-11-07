@@ -11,6 +11,27 @@ streamlit run app/streamlit_app.py       # from the repo root; opens http://loca
 
 Runs on a laptop CPU. No GPU, no network needed once data and checkpoints are local.
 
+### Second front end: Undertone
+
+`undertone_app.py` puts the same MELD models behind a consumer-style product: paste a chat with your
+partner (or pick an example) and every message gets a mood, plus a bar showing how much of that reading came
+from the message itself, the writer's own earlier messages and the other person's messages (the adaptive
+gate's weights). It covers the same ground as the research demo, in three tabs:
+
+| Tab | Shows |
+|---|---|
+| 💞 Read a chat | Chat bubbles with a mood per message (adaptive fusion, k=3) and its source blend; the other person's mood mix, mood journey and the strongest difficult moment. Example chats, your own chat, or real MELD test scenes with the dataset's labels (✓/✗) |
+| 🔬 Under the hood | The three sources, all five models side by side on the same chat, equal vs learned weights per message, what is installed |
+| 📈 Does it work? | MELD test Macro-F1 and accuracy, score by model, where the gate looks (`core.gate_summary`), the effect of k, limits |
+
+```bash
+streamlit run app/undertone_app.py --server.port 8502 --theme.primaryColor "#e0457b"
+```
+
+The friendly mood names (“annoyed”, “worried”, …) only relabel MELD's seven classes. Without neural
+checkpoints it falls back to TF-IDF (“lite mode”) and says so; the example chats are hand-written and
+unlabelled, so nothing is scored against them.
+
 ## What works without anything extra
 
 | Feature | Needs |
@@ -54,7 +75,10 @@ rsync -av --include='*/' --include='best.json' --include='config.yaml' --include
 |---|---|
 | `streamlit_app.py` | UI: sidebar (dataset, models; k=3 and seed 42 fixed), Live demo / Results / Models tabs |
 | `core.py` | No Streamlit: run discovery, checkpoint lookup, TF-IDF and neural predictors, dialogue parsing |
+| `undertone_app.py` | Consumer-style front end on the same models (see above) |
+| `insights.py` | No Streamlit: example couple chats, friendly mood names, the per-chat summary used by Undertone |
 | `examples.py` | `FEATURED`: real MELD test dialogues (dataset gold) that each show one effect of context, checked against the live checkpoints; `TEMPLATES`: unlabelled starting points for “Write your own” |
+| `../tests/test_undertone.py` | Undertone helpers, and the page itself run headless on every source and without neural checkpoints |
 | `../tests/test_app.py` | Discovery, checkpoint resolution, both predictors on a tiny random DistilBERT (no download); `test_featured_descriptions_hold` re-checks the featured blurbs against the real checkpoints (skips without them) |
 | `../.streamlit/config.toml` | Fixed light theme so the demo looks the same everywhere |
 
