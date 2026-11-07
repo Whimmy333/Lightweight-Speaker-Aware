@@ -2,7 +2,7 @@
 
 ## Parameter counts (neural models)
 
-Concatenation and fixed fusion add no parameters to the single-utterance model; adaptive fusion adds the gate. Recurrent encoders keep DistilBERT's word-piece embedding table frozen, so most of their parameters are not trained.
+Concatenation and fixed weighting add no parameters to the single-utterance model; adaptive weighting adds the gate. Recurrent encoders keep DistilBERT's word-piece embedding table frozen, so most of their parameters are not trained.
 
 | backbone | architecture | total | trainable | encoder | gate | head |
 |---|---|---:|---:|---:|---:|---:|
@@ -114,7 +114,7 @@ Every run trains once per learning rate and keeps the (learning rate, epoch) wit
 | mixed precision (GPU) | bf16 | off (fp32) |
 | word pieces kept per utterance | 80 | 80 |
 | context turns k (main study) | 3 | 3 |
-| fusion gate hidden units | 256 | 256 |
+| weighting gate hidden units | 256 | 256 |
 | utterance vector | cls token | max-pooling over time |
 | recurrent encoder | - | 1 layer, 256 units per direction |
 | embeddings | - | DistilBERT word-piece table (pretrained, frozen) |

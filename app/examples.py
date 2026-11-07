@@ -1,7 +1,8 @@
 """Dialogues offered in the demo.
 
 FEATURED: real MELD test-set dialogues (gold labels from the dataset), chosen because they show one clear
-effect of context. The descriptions were checked against the live seed-42 k=3 models on 27 Oct 2026; if the
+effect of context. The descriptions were checked against the live seed-42 k=3 models on 27 Oct 2026 (dia72 and
+dia144 added on 7 Nov 2026); if the
 checkpoints change, re-check them (tests/test_app.py::test_featured_descriptions_hold runs that check).
 
 TEMPLATES: hand-written starting points for "Write your own". They carry no labels, so the app never scores
@@ -12,12 +13,21 @@ fair probe of whether a model uses context at all (with our checkpoints, mostly 
 FEATURED = {
     "meld": [
         {
+            "dialogue_id": "dia72",
+            "title": "“It's my turn!”: the speaker's own history reveals the anger",
+            "line": 8,
+            "expect": {"adaptive": "anger", "single": "joy", "concat": "joy", "fixed": "joy"},
+            "blurb": "Line 8 is gold **anger**. The words alone sound happy, so Single, Concat and Fixed say joy; "
+                     "Adaptive weighting puts about 29% of its weight on Rachel's own angry lines before it and "
+                     "says anger.",
+        },
+        {
             "dialogue_id": "dia105",
             "title": "Phoebe's break-in: speaker history changes the reading",
             "line": 2,
             "expect": {"adaptive": "fear", "single": "anger", "tfidf_lr": "anger"},
             "blurb": "Line 2 is gold **fear**. TF-IDF and Single read the shouting as anger; only Adaptive "
-                     "fusion picks fear, putting about a third of its weight on Phoebe's own previous line.",
+                     "weighting picks fear, putting about a third of its weight on Phoebe's own previous line.",
         },
         {
             "dialogue_id": "dia257",
@@ -34,6 +44,15 @@ FEATURED = {
             "expect": {"single": "joy", "concat": "neutral", "adaptive": "neutral"},
             "blurb": "Line 5 is gold **joy**. Single gets it from the words alone; Concat and Adaptive follow "
                      "the neutral small talk before it and say neutral. Context is not automatically helpful.",
+        },
+        {
+            "dialogue_id": "dia144",
+            "title": "“Stuart!”: the speaker's own history misleads",
+            "line": 13,
+            "expect": {"single": "anger", "adaptive": "surprise"},
+            "blurb": "Line 13 is gold **anger**. Single gets it from the words alone; Adaptive weighting puts about "
+                     "45% of its weight on Monica's own earlier lines, which it read as surprise, and says "
+                     "surprise.",
         },
     ],
 }

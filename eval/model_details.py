@@ -43,7 +43,7 @@ def parameter_table(configs: list) -> list:
     from models.neural import build_model, count_parameters
 
     lines = ["## Parameter counts (neural models)", "",
-             "Concatenation and fixed fusion add no parameters to the single-utterance model; adaptive fusion adds "
+             "Concatenation and fixed weighting add no parameters to the single-utterance model; adaptive weighting adds "
              "the gate. Recurrent encoders keep DistilBERT's word-piece embedding table frozen, so most of their "
              "parameters are not trained.", "",
              "| backbone | architecture | total | trainable | encoder | gate | head |",
@@ -110,7 +110,7 @@ def hyperparameter_table(configs: list) -> list:
              row("mixed precision (GPU)", lambda c: "bf16" if c["train"]["amp"] else "off (fp32)"),
              row("word pieces kept per utterance", lambda c: c["context"]["max_utt_tokens"]),
              row("context turns k (main study)", lambda c: c["context"]["num_turns"]),
-             row("fusion gate hidden units", lambda c: c["model"]["fusion"]["gate_hidden"]),
+             row("weighting gate hidden units", lambda c: c["model"]["fusion"]["gate_hidden"]),
              row("utterance vector", lambda c: f"{c['model'].get('utterance_pooling', 'cls')} token"
                  if "rnn" not in c["model"] else f"{c['model']['rnn']['pooling']}-pooling over time"),
              f"| recurrent encoder | - | {rnn['num_layers']} layer, {rnn['hidden_size']} units per direction |",

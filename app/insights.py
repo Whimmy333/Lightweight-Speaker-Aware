@@ -36,6 +36,19 @@ CHECK_IN = {
 
 # Hand-written examples. They carry no labels, so nothing is ever scored against them.
 COUPLE_CHATS: Dict[str, List[tuple]] = {
+    "Stuck at work again": [
+        ("Sam", "Are you still coming to dinner?"),
+        ("Me", "Sorry, stuck at work again."),
+        ("Sam", "You said that yesterday."),
+        ("Me", "I know, I'm really sorry."),
+        ("Sam", "Fine."),
+    ],
+    "“Fine.” after good news": [
+        ("Me", "Guess what, I got the promotion!"),
+        ("Sam", "That's amazing! How are you feeling?"),
+        ("Me", "Honestly? Pretty good."),
+        ("Sam", "Fine."),
+    ],
     "The forgotten anniversary": [
         ("Me", "Hey, sorry I'm late, the meeting ran over."),
         ("Sam", "It's fine. The restaurant gave our table away an hour ago."),
@@ -90,7 +103,7 @@ def chat_summary(records: Sequence[dict], labels: Sequence[str], probs: np.ndarr
                  weights: Optional[np.ndarray] = None, source_names: Sequence[str] = ()) -> dict:
     """What the main screen says about the other person's messages.
 
-    probs is (N, L) over ``labels``; weights is (N, S) fusion weights over ``source_names`` (or None for a
+    probs is (N, L) over ``labels``; weights is (N, S) gate weights over ``source_names`` (or None for a
     model without a gate). "Their" lines are every line not written by ``me``.
     """
     pred = [labels[i] for i in probs.argmax(1)]

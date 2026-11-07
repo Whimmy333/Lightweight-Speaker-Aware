@@ -1,4 +1,4 @@
-"""Streamlit demo: speaker-aware context fusion for conversational emotion recognition.
+"""Streamlit demo: speaker-aware context weighting for conversational emotion recognition.
 
     streamlit run app/streamlit_app.py
 
@@ -34,7 +34,7 @@ SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#62
 # Model colour follows the model (fixed slot = position in MODEL_ORDER), never its rank in a chart.
 MODEL_COLOR = {m: SERIES[i] for i, m in enumerate(core.MODEL_ORDER)}
 HIGHLIGHT, DIM = SERIES[0], BASELINE
-# Fusion sources: palette slots 6-7-8, adjacent in the validated order.
+# Weighting sources: palette slots 6-7-8, adjacent in the validated order.
 SOURCE_COLOR = {"current": "#008300", "same speaker": "#6250d6", "history": "#6250d6", "other speaker": "#e34948"}
 EMOTION_COLOR = {
     "anger": "#e34948", "mad": "#e34948", "disgust": "#008300", "fear": "#6250d6", "scared": "#6250d6",
@@ -170,7 +170,7 @@ def short(text: str, n: int = 46) -> str:
 
 # ---------------------------------------------------------------- sidebar
 
-st.sidebar.title("💬 Context fusion demo")
+st.sidebar.title("💬 Context weighting demo")
 dataset = st.sidebar.selectbox("Dataset", list(core.DATASET_NAMES), format_func=core.DATASET_NAMES.get)
 models_k = core.models_for(dataset)
 # The demo uses the main setting (k=3, seed 42); k=1/5 and all seeds stay in the Results tab.
@@ -185,7 +185,7 @@ statuses = {m: core.model_status(dataset, m, k, seed) for m in models_k}
 # Only offer models that can produce something here; the rest are listed under Model status with the reason.
 offered = [m for m, s in statuses.items() if s.usable or s.state == "saved"]
 default_models = [m for m in core.MODEL_ORDER if m in offered and not m.endswith("_merged")] or offered
-if dataset == "dailydialog":  # no speaker IDs: the merged variants are the fusion models
+if dataset == "dailydialog":  # no speaker IDs: the merged variants are the weighting models
     default_models = [m for m in ("tfidf_lr", "single", "concat", "fixed_merged", "adaptive_merged") if m in offered]
 chosen = st.sidebar.multiselect("Models to compare", offered, default=default_models,
                                 format_func=lambda m: core.MODEL_INFO[m].label,
@@ -199,10 +199,10 @@ for m, s in statuses.items():
                         f"<span class='status-{s.state}' style='font-size:.8rem'>{html.escape(public_note(s))}</span>",
                         unsafe_allow_html=True)
 if dataset == "dailydialog":
-    st.sidebar.info("DailyDialog has no speaker IDs, so fusion uses current vs all history.")
+    st.sidebar.info("DailyDialog has no speaker IDs, so weighting uses current vs all history.")
 
 st.title("When does context help?")
-st.caption("Lightweight speaker-aware context fusion for conversational emotion recognition · EE6405")
+st.caption("Lightweight speaker-aware context weighting for conversational emotion recognition · EE6405")
 
 tab_demo, tab_results, tab_status = st.tabs(["🗣️ Live demo", "📊 Results", "🔧 Models"])
 
@@ -332,20 +332,20 @@ with tab_demo:
             st.caption("Not shown: " + "; ".join(f"{', '.join(names)}: {reason}" for reason, names in by_reason.items())
                        + ".")
 
-        # ---- 2. fusion weights
+        # ---- 2. gate weights
         fusion = {m: p for m, p in preds.items() if p.weights is not None}
         st.subheader("2 · Where does each prediction look?")
         if not fusion:
             fusion_keys = [m for m in statuses if m in ("fixed", "adaptive", "fixed_merged", "adaptive_merged")]
             if not any(m in offered for m in fusion_keys):
-                st.info(f"The fusion models for {core.DATASET_NAMES[dataset]} are not included in this demo. "
+                st.info(f"The weighting models for {core.DATASET_NAMES[dataset]} are not included in this demo. "
                         "Switch the dataset to MELD to see the learned weights.")
             elif not any(m in chosen for m in fusion_keys):
-                st.info("Select Fixed or Adaptive fusion under “Models to compare” to see, for every line, how "
+                st.info("Select Fixed or Adaptive weighting under “Models to compare” to see, for every line, how "
                         "much each prediction relies on the current utterance, the same speaker's earlier turns "
                         "and the other speakers' turns.")
             else:
-                st.info("The selected fusion models could not run on this dialogue (reason above).")
+                st.info("The selected weighting models could not run on this dialogue (reason above).")
         else:
             fcols = st.columns(len(fusion))
             ylab = [f"{i + 1}. {short(', '.join(r['speaker_ids']) or '?', 10)}: {short(r['text'], 34)}"
@@ -370,7 +370,7 @@ with tab_demo:
                 col.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
             st.caption("Bars sum to 100% over the sources that exist for that turn; a source with no turn in the "
                        "window gets 0 (the first turn always uses the current utterance alone). "
-                       "Fixed fusion weights every available source equally; adaptive fusion learns the split.")
+                       "Fixed gate weights every available source equally; adaptive weighting learns the split.")
 
         # ---- 3. inspector
         st.subheader("3 · Look inside one utterance")
@@ -411,7 +411,7 @@ with tab_demo:
                     for m, p in fusion.items():
                         ws = ", ".join(f"{s} {w:.0%}" for s, w, a in zip(p.source_names, p.weights[idx], p.avail[idx]) if a)
                         parts.append(f"**{core.MODEL_INFO[m].short}**: {ws}")
-                    st.markdown("Fusion weights for this turn — " + " · ".join(parts))
+                    st.markdown("Gate weights for this turn — " + " · ".join(parts))
 
 # ================================================================= results
 
@@ -467,7 +467,7 @@ with tab_results:
             label = core.MODEL_INFO[fusion_model].label
             # headline group first, the equal split right under it, then the remaining history group
             rows = [(f"{label} · {main_group} ({main['share']:.0%} of lines)", main[srcs]),
-                    (f"Fixed fusion · {main_group} (always equal)", pd.Series(1 / len(srcs), index=srcs))]
+                    (f"Fixed weighting · {main_group} (always equal)", pd.Series(1 / len(srcs), index=srcs))]
             rows += [(f"{label} · {grp} ({by_group.loc[grp, 'share']:.0%} of lines)", by_group.loc[grp, srcs])
                      for grp in by_group.index
                      if grp not in (main_group, "first turn (no history)", "all test lines")]
@@ -503,7 +503,7 @@ with tab_results:
             first = by_group.loc["first turn (no history)", "share"] if "first turn (no history)" in by_group.index else 0
             st.caption(f"{core.DATASET_NAMES[dataset]} test set, k = {k}: mean of the per-utterance gate weights, "
                        f"averaged over {int(main['n_seeds'])} seeds. First turns ({first:.0%} of lines) have no "
-                       "history and use the current line alone. Fixed fusion always splits equally between the "
+                       "history and use the current line alone. Fixed weighting always splits equally between the "
                        "sources that exist.")
 
         c1, c2 = st.columns(2)

@@ -537,7 +537,7 @@ def _section_notes(data, meld_meta) -> List[str]:
         "never part of model inputs.",
         "- DailyDialog does not supply explicit speaker IDs in the standard text release. Its `speaker_ids` are "
         "empty, so same-speaker versus other-speaker history is not identifiable; use speaker-independent "
-        "context fusion for DailyDialog rather than interpreting empty IDs as different speakers.",
+        "context weighting for DailyDialog rather than interpreting empty IDs as different speakers.",
     ]
     if "meld" in data:
         for sp in SPLITS:

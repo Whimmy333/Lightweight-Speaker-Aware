@@ -15,7 +15,7 @@ model, same hand-back steps); this page only lists what is new.
 | EmoryNLP single-utterance baseline | `emorynlp/single_s*` | 3 |
 | BERT-base and RoBERTa-base on MELD | `meld/{bert,roberta}_{single,concat,fixed,adaptive}*` | 24 |
 | RNN / LSTM / GRU (uni- and bidirectional) on MELD | `meld/{rnn,birnn,lstm,bilstm,gru,bigru}_{single,concat}*` | 36 |
-| Fusion on a BiLSTM encoder | `meld/bilstm_{fixed,adaptive}*` | 6 |
+| Weighting on a BiLSTM encoder | `meld/bilstm_{fixed,adaptive}*` | 6 |
 | Hyper-parameter sweep (learning rate, batch size, dropout) on MELD | `meld/sweep_*` | 54 |
 
 The traditional baselines (term weighting × classifier) run on a laptop CPU and are committed separately,

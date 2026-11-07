@@ -154,7 +154,7 @@ def test_status_ready_when_checkpoint_dropped_in(tmp_path, tiny_encoder, monkeyp
 def test_results_table_loads():
     df = core.load_results()
     assert {"meld", "emorynlp", "dailydialog"} <= set(df["dataset"])
-    assert df.loc[df["model"] == "adaptive", "model_label"].iloc[0] == "Adaptive fusion"
+    assert df.loc[df["model"] == "adaptive", "model_label"].iloc[0] == "Adaptive weighting"
 
 
 def test_test_dialogues_fall_back_to_predictions_csv(tmp_path):

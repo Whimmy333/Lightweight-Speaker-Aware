@@ -8,7 +8,7 @@ Two versions of the demo, built on the same models and the same code in `core.py
 | Audience | Researchers and markers: the experiment, model by model | Consumers: a product that reads the mood of a chat with your partner |
 | Datasets | MELD, EmoryNLP, DailyDialog | MELD |
 | Input | Featured or test-set dialogue, or your own | Example couple chats, your own chat, or Friends test scenes |
-| Main view | Table of every model's prediction per utterance, fusion-weight charts, inspector | Chat bubbles with a mood per message and a “Based on” bar (the gate's weights) |
+| Main view | Table of every model's prediction per utterance, gate-weight charts, inspector | Chat bubbles with a mood per message and a “Based on” bar (the gate's weights) |
 | Results | 📊 Results tab: all models, k, gate, size and latency | 📈 Does it work?: headline scores, score by model, gate, k, limits |
 | Port | 8501 | 8502 |
 
@@ -25,7 +25,7 @@ the shared set-up.
 ## Version 1: research demo (`streamlit_app.py`)
 
 Pick a featured or test-set dialogue (or type your own) and see per-utterance emotion predictions from every
-model side by side, the fusion weights (current / same speaker / other speaker) for each turn, and the
+model side by side, the gate weights (current / same speaker / other speaker) for each turn, and the
 aggregated results from `outputs/results_summary.csv`. Tabs: 🗣️ Live demo, 📊 Results, 🔧 Models.
 
 ## Version 2: Undertone (`undertone_app.py`)
@@ -37,7 +37,7 @@ It covers the same ground as version 1, in three tabs:
 
 | Tab | Shows |
 |---|---|
-| 💞 Read a chat | Chat bubbles with a mood per message (adaptive fusion, k=3) and its source blend; the other person's mood mix, mood journey and the strongest difficult moment. Example chats, your own chat, or real MELD test scenes with the dataset's labels (✓/✗) |
+| 💞 Read a chat | Chat bubbles with a mood per message (adaptive weighting, k=3) and its source blend; the other person's mood mix, mood journey and the strongest difficult moment. Example chats, your own chat, or real MELD test scenes with the dataset's labels (✓/✗) |
 | 🔬 Under the hood | The three sources, all five models side by side on the same chat, equal vs learned weights per message, what is installed |
 | 📈 Does it work? | MELD test Macro-F1 and accuracy, score by model, where the gate looks (`core.gate_summary`), the effect of k, limits |
 
@@ -100,7 +100,7 @@ rsync -av --include='*/' --include='best.json' --include='config.yaml' --include
 - Best viewed at 1920×1080; collapse the sidebar (`<` at its top) for the results charts. The first load of
   each checkpoint takes a few seconds.
 - Featured dialogues (MELD, k=3):
-  - “Phoebe's break-in” (`dia105`, line 2, gold fear): only Adaptive fusion predicts fear, with about a third
+  - “Phoebe's break-in” (`dia105`, line 2, gold fear): only Adaptive weighting predicts fear, with about a third
     of its weight on Phoebe's earlier line (confidence 26%).
   - “You know it?” (`dia257`, line 2, gold surprise): the context models (Concat, Adaptive) predict surprise;
     TF-IDF and Single predict neutral.
@@ -112,4 +112,4 @@ rsync -av --include='*/' --include='best.json' --include='config.yaml' --include
 - Adaptive and Single are within the seed-to-seed spread on MELD test Macro-F1 (Results tab).
 - The Results tab's gate panel averages the per-utterance gate weights over the test set and the three seeds:
   on MELD the current line gets 84% when both kinds of history exist (own earlier turns 11%, other speakers 5%),
-  against 33% each for fixed fusion; 88% across all test lines.
+  against 33% each for fixed weighting; 88% across all test lines.

@@ -4,7 +4,7 @@
 
 Paste a chat with your partner (or pick an example) and every message gets a mood, plus how much of that
 reading came from the message itself, the writer's own earlier messages and the other person's messages
-(the adaptive fusion gate). "Under the hood" compares all five models side by side; "Does it work?" shows the
+(the adaptive weighting gate). "Under the hood" compares all five models side by side; "Does it work?" shows the
 test-set results. Runs on CPU; TF-IDF is always live, the neural models switch on when their checkpoints
 are in outputs/runs/.
 """
@@ -235,6 +235,19 @@ with tab_chat:
     col_in, col_chat = st.columns([1, 1.75], gap="large")
     dialogues = test_dialogues()
     scenes = [f for f in FEATURED.get(DATASET, []) if f["dialogue_id"] in dialogues]
+
+    # Optional deep links for recording and screenshots, applied once per session:
+    # ?chat=<example chat name>  or  ?scene=<MELD dialogue id, e.g. dia72>
+    if not st.session_state.get("u_link_applied"):
+        st.session_state["u_link_applied"] = True
+        qp = st.query_params
+        if qp.get("chat") in COUPLE_CHATS:
+            st.session_state["u_source"] = "Example chats"
+            st.session_state["u_example"] = qp["chat"]
+        scene_ids = [f["dialogue_id"] for f in scenes]
+        if qp.get("scene") in scene_ids:
+            st.session_state["u_source"] = "Scenes from Friends"
+            st.session_state["u_scene"] = scene_ids.index(qp["scene"])
 
     with col_in:
         options = ["Example chats", "Paste your own"] + (["Scenes from Friends"] if scenes else [])

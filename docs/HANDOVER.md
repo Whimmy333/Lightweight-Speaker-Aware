@@ -290,7 +290,7 @@ outputs/runs/emorynlp_adaptive_k3_s42/lr_*/checkpoints/best.pt
 | `outputs/runs/<run_name>/report.md` | readable summary of one run |
 | `outputs/runs/<run_name>/train.log` | full log of one run |
 | `outputs/runs/<run_name>/predictions_test.csv` | per-utterance predictions |
-| `outputs/runs/<run_name>/fusion_weights_test.csv` | per-utterance fusion weights (fusion models) |
+| `outputs/runs/<run_name>/fusion_weights_test.csv` | per-utterance gate weights (weighting models) |
 | `docs/TECHNICAL.md` | how the models and the protocol work |
 
 ## 10. Running somewhere else

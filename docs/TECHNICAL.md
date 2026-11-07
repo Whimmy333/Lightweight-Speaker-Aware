@@ -1,4 +1,4 @@
-# Technical Report: Speaker-Aware Context Fusion for Conversational Emotion Recognition
+# Technical Report: Speaker-Aware Context Weighting for Conversational Emotion Recognition
 
 EE6405 Natural Language Processing, group project. This report describes the data pipeline, the models,
 the training and evaluation protocol, and the results of all 237 configurations (Section 8). Section 9 lists
@@ -34,7 +34,7 @@ context windows can bring in exchanges that are irrelevant to the target. The pr
 3. Does learning per-utterance weights for these sources add value over concatenating the context or
    fusing it with fixed weights?
 
-The working hypothesis is that adaptive fusion helps most on short utterances and where the context
+The working hypothesis is that adaptive weighting helps most on short utterances and where the context
 sources differ in relevance. The experiments are designed to test this, and a gain is reported only if the
 results show one.
 
@@ -155,7 +155,7 @@ utterances (0.78%). At k=5 the concatenated input is at most (5+1)·80+7 = 487 t
 |---|---|
 | single | `[CLS] u_t [SEP]` |
 | concat | `[CLS] u_t [SEP] u_{t-k} [SEP] … u_{t-1} [SEP]` |
-| fusion | each utterance separately as `[CLS] u [SEP]` |
+| weighting | each utterance separately as `[CLS] u [SEP]` |
 
 ## 4. Models
 
@@ -168,7 +168,7 @@ dropout(0.1) + linear classifier.
 **Context concatenation** classifies `[CLS]` of the concatenated sequence above. It sees the history
 but does not separate speakers.
 
-**Fixed-weight fusion** encodes the current utterance and every history utterance with the shared
+**Fixed-weight weighting** encodes the current utterance and every history utterance with the shared
 encoder. It mean-pools the history vectors within each speaker group:
 
 - h_current = encoder(u_t)
@@ -178,7 +178,7 @@ encoder. It mean-pools the history vectors within each speaker group:
 and combines them as z = Σ_s w_s · h_s. Here w_s is equal (1/n) across the n available sources, and a
 missing group gets weight 0.
 
-**Adaptive fusion (proposed)** replaces the equal weights with a learned gate:
+**Adaptive weighting (proposed)** replaces the equal weights with a learned gate:
 
 ```
 g     = [h_current ; h_same ; h_other ; m]            m = availability mask (3 flags)
@@ -189,7 +189,7 @@ z     = w_current·h_current + w_same·h_same + w_other·h_other
 
 The gate has 592k parameters (W1: 2307→256, W2: 256→3), which is 0.9% of the model. The first turn of a
 dialogue only has the current source, so w_current = 1. W2 starts at zero, so training begins exactly at
-the fixed-fusion weights and the gate learns to move away from them only if that helps. The encoder,
+the fixed weights and the gate learns to move away from them only if that helps. The encoder,
 gate and classifier are fine-tuned together.
 
 **Ablations**
@@ -197,7 +197,7 @@ gate and classifier are fine-tuned together.
 - *Speaker merge* (`adaptive_merged`): same- and other-speaker history pooled into one source; the gate
   weighs two sources (current, history).
 - *Equal weights instead of learned weights*: removing the gate while keeping everything else fixed gives
-  exactly the fixed-fusion model, so that comparison needs no extra training run. In addition, every
+  exactly the fixed-weighting model, so that comparison needs no extra training run. In addition, every
   trained adaptive model is evaluated a second time with its gate replaced by equal weights
   (`metrics_*_equal_weights.json`). This shows whether the trained model actually relies on the weights
   it learned.
@@ -208,7 +208,7 @@ encoders (`model.backbone` in the config; `models/neural.py`):
 - *Transformers*: `bert-base-uncased` (pinned `86b5e09`) and `roberta-base` (pinned `e2da8e2`) in all four
   architectures, with the training settings of Section 5.
 - *Recurrent*: RNN, LSTM and GRU, each one- and bidirectional, as single-utterance and concatenation
-  models; BiLSTM also with fixed and adaptive fusion. They read DistilBERT's word pieces through its frozen
+  models; BiLSTM also with fixed and adaptive weighting. They read DistilBERT's word pieces through its frozen
   768-d input embedding table (static vectors, like GloVe), so they keep the token budget of every other
   model. One recurrent layer of 256 units per direction, max-pooling over time, dropout 0.3, learning rates
   1e-3 and 3e-3, 10 epochs, fp32.
@@ -270,7 +270,7 @@ All models report through the same code in `eval/`:
   tokenisation, the forward pass and moving results back to the CPU. Measured on 300 test utterances,
   batch size 1, after 10 warm-up batches, on the training device.
 - **Fixed output formats** (`eval/predictions.py`): one prediction row per utterance with gold label,
-  predicted label and class probabilities; for fusion models, one row per utterance with source
+  predicted label and class probabilities; for weighting models, one row per utterance with source
   availability and the three weights.
 - **Aggregation** (`eval/aggregate.py`): mean ± sample standard deviation over seeds, per dataset, model
   and context length, written to `outputs/results_summary.md`. The encoder comparison and the
@@ -324,10 +324,10 @@ three seeds (full tables, per-class F1 and latency in `outputs/results_summary.m
 | TF-IDF + LR | 0.360 | 0.286 | 0.437 |
 | single-utterance DistilBERT | 0.437 ± 0.007 | 0.270 ± 0.006 | 0.478 ± 0.028 |
 | concatenation | 0.428 ± 0.012 | 0.292 ± 0.011 | 0.488 ± 0.022 |
-| fixed fusion | 0.361 ± 0.008 | 0.248 ± 0.004 | 0.480 ± 0.012 (merged) |
-| adaptive fusion | 0.438 ± 0.006 | 0.282 ± 0.007 | 0.489 ± 0.006 (merged) |
+| fixed weighting | 0.361 ± 0.008 | 0.248 ± 0.004 | 0.480 ± 0.012 (merged) |
+| adaptive weighting | 0.438 ± 0.006 | 0.282 ± 0.007 | 0.489 ± 0.006 (merged) |
 
-The learned gate matters (fixed fusion is far below adaptive, and swapping equal weights into the trained
+The learned gate matters (fixed weighting is far below adaptive, and swapping equal weights into the trained
 adaptive model drops MELD to 0.349), but context adds little over the single-utterance model on MELD and
 DailyDialog, and speaker separation shows no clear gain (MELD 0.438 vs 0.435 merged). EmoryNLP is the
 exception: concatenation beats the single-utterance model there, and the gate gives history 23% of the weight
@@ -347,12 +347,12 @@ differences.
 
 On MELD the gate is stable across seeds (current-utterance weight 0.84, 0.85, 0.84) and does not depend on
 utterance length (correlation −0.01 to +0.01). Short replies (three words or fewer, 27% of the test set)
-score 0.506 for single, concatenation and adaptive fusion alike; the seed-42 lead of concatenation on them
+score 0.506 for single, concatenation and adaptive weighting alike; the seed-42 lead of concatenation on them
 (+0.040) does not repeat on seeds 43 and 44.
 
-The encoder comparison (MELD, k = 3) keeps the same ranking for BERT-base and RoBERTa-base: adaptive fusion
+The encoder comparison (MELD, k = 3) keeps the same ranking for BERT-base and RoBERTa-base: adaptive weighting
 and concatenation are level (difference −0.002, p ≥ 0.76), both about 0.011–0.014 above the single-utterance
-model (p = 0.07–0.16), and fixed fusion is 0.07 below (p < 0.001). RoBERTa-base concatenation is the best
+model (p = 0.07–0.16), and fixed weighting is 0.07 below (p < 0.001). RoBERTa-base concatenation is the best
 model overall (0.470 ± 0.005); RoBERTa single beats DistilBERT single by 0.020 (p = 0.02) at about twice
 the latency (8.6 vs 4.0 ms). Recurrent encoders reach at most 0.417 (GRU, concatenation) at about 1 ms per
 utterance; the BiLSTM gate puts all of its weight on the current utterance. The sweep around the reference
@@ -396,12 +396,12 @@ configurations); those smoke-test scores carry no information about model qualit
 | main context window | k = 3 for the main comparison and ablations; k = 1 and 5 in the context study | fixed before seeing results; k=3 is where same-speaker history becomes common (Section 2.5) |
 | learning rates | each run tries 2e-5 and 5e-5 once and selects (lr, epoch) on dev Macro-F1 | one rule for every model; selection never uses test |
 | token budget | 80 word pieces per utterance for all models | identical retained text for all models; fits k=5 into 512 positions |
-| equal-weights ablation | identical to fixed fusion, plus an inference-time equal-weights evaluation of each adaptive run | avoids training a duplicate model |
+| equal-weights ablation | identical to fixed weighting, plus an inference-time equal-weights evaluation of each adaptive run | avoids training a duplicate model |
 | TF-IDF seeds | one run per dataset | deterministic solver |
 | TF-IDF on EmoryNLP | added | gives the EmoryNLP comparison a non-neural reference |
 | `turn_index` field | added to the record format | MELD utterance ids have gaps |
 | re-used scenes | kept in official splits; listed for a sensitivity analysis | keeps results comparable with published work |
-| gate initialisation | output layer starts at zero (= fixed fusion) | makes adaptive fusion a strict extension of the control |
+| gate initialisation | output layer starts at zero (= fixed weighting) | makes adaptive weighting a strict extension of the control |
 
 ## 10. Engineering: reproducibility and testing
 
@@ -420,7 +420,7 @@ configurations); those smoke-test scores carry no information about model qualit
   downloads. They cover:
   - loaders and context construction: first turn, window sizes, speaker split, multi-speaker overlap,
     dialogue/split boundaries, label leakage;
-  - the token budget, fusion masking and weights, and the gate's equal-weight initialisation;
+  - the token budget, weighting masking and weights, and the gate's equal-weight initialisation;
   - every model type end to end on a tiny randomly initialised encoder, crash-and-resume, and refusal of
     changed configs;
   - TF-IDF with missing classes, the scene-overlap detector and aggregation.

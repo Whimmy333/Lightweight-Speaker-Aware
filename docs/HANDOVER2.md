@@ -32,25 +32,25 @@
 
 
 
-**Important architectural note:** *DailyDialog uses `fixed\_merged` and `adaptive\_merged`, in which speaker history is pooled. MELD and EmoryNLP use the speaker-separated `fixed` and `adaptive` architectures.* Therefore, comparisons across datasets do not represent exactly identical fusion architectures.
+**Important architectural note:** *DailyDialog uses `fixed\_merged` and `adaptive\_merged`, in which speaker history is pooled. MELD and EmoryNLP use the speaker-separated `fixed` and `adaptive` architectures.* Therefore, comparisons across datasets do not represent exactly identical weighting architectures.
 
 The TF-IDF logistic-regression baselines have one run each (not shown in the main comparison table). Checkpoints were selected on **development-set Macro-F1**. The source summary includes sample standard deviations, Weighted-F1, and per-class F1.
 
 **Main observation:** Adaptive achieves the highest mean test Macro-F1 on **MELD and DailyDialog**, and ranks second on **EmoryNLP**. The two wins are narrow: Adaptive exceeds the closest competitor by only **0.0015** Macro-F1 on each of MELD and DailyDialog. A paired bootstrap over all three seeds (README, "Results so far") later confirmed that neither gap is significant (p = 0.82 on MELD, p = 0.89 on DailyDialog), so they should not be described as improvements.
 
-## 4\. Ablation: Does learned fusion matter?
+## 4\. Ablation: Does learned weighting matter?
 
 **MELD (k=3), test Macro-F1:**
 
 |Condition|Test Macro-F1|
 |-|-:|
-|Fixed (separately trained equal-weight fusion)|0.3613|
-|Adaptive (learned fusion)|**0.4382**|
+|Fixed (separately trained equal weighting)|0.3613|
+|Adaptive (learned weighting)|**0.4382**|
 |Trained Adaptive with equal weights forced at inference|0.3493|
 
 
 
-* Learned Adaptive fusion outperforms the separately trained Fixed baseline by **0.0769 absolute Macro-F1** (7.69 percentage points).
+* Learned Adaptive weighting outperforms the separately trained Fixed baseline by **0.0769 absolute Macro-F1** (7.69 percentage points).
 * Forcing equal weights **at inference** in an already-trained Adaptive model lowers Macro-F1 from **0.4382 to 0.3493**.
 * **Interpretation caveat:** The inference-time intervention is *not* a replacement for a separately trained control model; it shows the trained Adaptive model relies on its learned gate.
 * DailyDialog provides a related observation: `adaptive\_merged` scores **0.4893**, versus **0.3429** when its trained gate is replaced with equal weights at inference.
@@ -94,7 +94,7 @@ Adaptive incurs approximately **20–25% more latency** than Concat in these run
 
 1. **Competitive overall performance.** Adaptive is first by mean test Macro-F1 on MELD and DailyDialog and second on EmoryNLP. The two leading margins are narrow.
 2. **Context is not automatically helpful.** MELD Single (0.4367) nearly matches Adaptive (0.4382), and beats Concat (0.4278). EmoryNLP is the exception: its Single baseline, run in the second batch (0.2701), is significantly below Concat (0.2919, p = 0.009).
-3. **The learned fusion mechanism matters in these experiments.** Adaptive substantially exceeds the trained Fixed baseline on MELD, while inference-time equal-weight intervention reduces the trained model's performance.
+3. **The learned weighting mechanism matters in these experiments.** Adaptive substantially exceeds the trained Fixed baseline on MELD, while inference-time equal-weight intervention reduces the trained model's performance.
 4. **Useful context length is model-dependent.** Adaptive benefits modestly from larger k on MELD; Concat does not improve monotonically.
 5. **There is a cost–performance trade-off.** Adaptive is \~20–25% slower than Concat in mean per-utterance latency.
 6. **Report metrics carefully.** Use Macro-F1 as the primary measure, retain three-seed variation and acknowledge class imbalance. Significance comes from the paired bootstrap in the README ("Results so far"); only the gaps to Fixed and EmoryNLP's Concat vs Single gap are significant.

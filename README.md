@@ -1,13 +1,13 @@
 
-# When Does Context Help? Lightweight Speaker-Aware Context Fusion for Conversational Emotion Recognition
+# When Does Context Help? Lightweight Speaker-Aware Context Weighting for Conversational Emotion Recognition
 
 EE6405 Natural Language Processing, group project.
 
-Each utterance in a dialogue receives one emotion label from its text, its speaker and the preceding turns. We build a lightweight adaptive fusion module that decides how much to rely on the current utterance, the same speaker's earlier turns and other speakers' turns.
+Each utterance in a dialogue receives one emotion label from its text, its speaker and the preceding turns. We build a lightweight adaptive weighting module that decides how much to rely on the current utterance, the same speaker's earlier turns and other speakers' turns.
 
 The main controlled comparisons use **MELD** and **EmoryNLP**. We add **DailyDialog** as a third, supplementary benchmark to examine how context methods behave on a different dialogue corpus.
 
-DailyDialog does not provide explicit speaker IDs in the standard text release. Its experiments therefore use speaker-independent history fusion and do not test whether separating same-speaker history from other-speaker history helps.
+DailyDialog does not provide explicit speaker IDs in the standard text release. Its experiments therefore use speaker-independent history weighting and do not test whether separating same-speaker history from other-speaker history helps.
 
 > **Status.** All 237 configurations have finished: the original study (57), the EmoryNLP single-utterance baseline, the other encoders, the traditional term-weighting × classifier baselines and the hyper-parameter sweep. Every run folder (without checkpoints) is in `outputs/runs/`; the results are in [outputs/results_summary.md](outputs/results_summary.md) and summarised under [Results so far](#results-so-far). Everything is on `main`; `feature/dailydialog-support` has been merged. **Preparing the video?** See [For the presentation: how to say it](#for-the-presentation-how-to-say-it) and [where to find things](#for-the-presentation-where-to-find-things).
 
@@ -34,11 +34,11 @@ DailyDialog does not provide explicit speaker IDs in the standard text release. 
 
 1. **Context length:** does more history help, or does it interfere? The main study compares 1, 3 and 5 previous turns.
 2. **Speaker separation:** does distinguishing a speaker's own history from other speakers' history help? This ablation is conducted on datasets with speaker IDs.
-3. **Fusion strategy:** does learning per-utterance source weights outperform context concatenation or equal-weight fusion?
+3. **Weighting strategy:** does learning per-utterance source weights outperform context concatenation or equal weighting?
 
-**The model is interpretable.** Speaker-aware fusion records the availability and weight of the current, same-speaker and other-speaker sources. Speaker-independent fusion uses the current utterance and the combined history as its two sources.
+**The model is interpretable.** Speaker-aware weighting records the availability and weight of the current, same-speaker and other-speaker sources. Speaker-independent weighting uses the current utterance and the combined history as its two sources.
 
-**The method is lightweight.** The fusion module uses a shared DistilBERT encoder and a small fusion head. End-to-end latency, including tokenisation, is measured for the evaluated models.
+**The method is lightweight.** The weighting module uses a shared DistilBERT encoder and a small weighting head. End-to-end latency, including tokenisation, is measured for the evaluated models.
 
 **The benchmarks serve different purposes.** MELD and EmoryNLP are based on *Friends* and provide speaker annotations. DailyDialog provides a third corpus with a different label set and no explicit speaker IDs in its standard text release. DailyDialog can test cross-dataset behaviour of context methods, but it cannot establish the value of speaker-identity separation.
 
@@ -46,9 +46,9 @@ DailyDialog does not provide explicit speaker IDs in the standard text release. 
 
 ### Method
 
-A shared DistilBERT encodes the current utterance and each retained history utterance. The fusion model mean-pools history vectors by source group, then uses masked source weights to combine the resulting representations.
+A shared DistilBERT encodes the current utterance and each retained history utterance. The weighting model mean-pools history vectors by source group, then uses masked source weights to combine the resulting representations.
 
-For speaker-aware fusion:
+For speaker-aware weighting:
 
 \[
 z = w_{\mathrm{current}}h_{\mathrm{current}}
@@ -58,12 +58,12 @@ z = w_{\mathrm{current}}h_{\mathrm{current}}
 
 A source that is unavailable receives zero weight. Therefore, the first turn of a dialogue uses the current utterance alone.
 
-For speaker-independent fusion, the two sources are:
+For speaker-independent weighting, the two sources are:
 
 - the current utterance;
 - all available history turns, pooled together.
 
-The latter is the intended fusion design for DailyDialog. Missing speaker IDs are treated as unknown, not as evidence that two utterances belong to different speakers.
+The latter is the intended weighting design for DailyDialog. Missing speaker IDs are treated as unknown, not as evidence that two utterances belong to different speakers.
 
 ### Models compared
 
@@ -74,11 +74,11 @@ Every DistilBERT model uses the same pretrained encoder (66M parameters), the sa
 | TF-IDF + LR | current utterance, word 1–2-grams | none | traditional baseline |
 | Single | current utterance | none | is context needed at all? |
 | Concatenation | current + previous k turns as one sequence | the Transformer mixes everything | the simple way to add context |
-| Fixed fusion | each turn encoded separately | equal weights over current, same-speaker and other-speaker vectors | is weighting needed? |
-| Adaptive fusion (ours) | each turn encoded separately | a small gate learns per-utterance weights over the three sources | does learned weighting help? |
+| Fixed weighting | each turn encoded separately | equal weights over current, same-speaker and other-speaker vectors | is weighting needed? |
+| Adaptive weighting (ours) | each turn encoded separately | a small gate learns per-utterance weights over the three sources | does learned weighting help? |
 | Adaptive merged | each turn encoded separately | as adaptive, but all history in one source | does separating speakers help? |
 
-The gate is a two-layer network with 0.59M parameters (0.9% of the model). It starts at equal weights and only moves away if that lowers the training loss. A missing source, such as same-speaker history on the first turns, gets weight 0. DailyDialog has no speaker IDs, so it only runs the merged versions of fixed and adaptive fusion.
+The gate is a two-layer network with 0.59M parameters (0.9% of the model). It starts at equal weights and only moves away if that lowers the training loss. A missing source, such as same-speaker history on the first turns, gets weight 0. DailyDialog has no speaker IDs, so it only runs the merged versions of fixed and adaptive weighting.
 
 Training is the same for every DistilBERT model: learning rates 2e-5 and 5e-5, up to 5 epochs, batch size 16, three seeds. The (learning rate, epoch) with the best dev Macro-F1 is kept and evaluated on test once. The other encoders use the same settings, recurrent ones for up to 10 epochs. Every setting is in [outputs/model_details.md](outputs/model_details.md).
 
@@ -117,18 +117,18 @@ Test Macro-F1 of the original study, k = 3, mean ± std over seeds 42, 43 and 44
 | TF-IDF + LR | 0.360 | 0.286 | 0.437 |
 | Single-utterance DistilBERT | 0.437 ± 0.007 | 0.270 ± 0.006 | 0.478 ± 0.028 |
 | Concatenation | 0.428 ± 0.012 | 0.292 ± 0.011 | 0.488 ± 0.022 |
-| Fixed fusion (equal weights) | 0.361 ± 0.008 | 0.248 ± 0.004 | 0.480 ± 0.012 |
-| Adaptive fusion (ours) | 0.438 ± 0.006 | 0.282 ± 0.007 | 0.489 ± 0.006 |
+| Fixed weighting (equal weights) | 0.361 ± 0.008 | 0.248 ± 0.004 | 0.480 ± 0.012 |
+| Adaptive weighting (ours) | 0.438 ± 0.006 | 0.282 ± 0.007 | 0.489 ± 0.006 |
 
-DailyDialog has no speaker IDs, so its fusion models pool all history into one source (`fixed_merged`, `adaptive_merged`).
+DailyDialog has no speaker IDs, so its weighting models pool all history into one source (`fixed_merged`, `adaptive_merged`).
 
-- **The learned gate matters.** Adaptive fusion beats fixed fusion by 0.077 on MELD (95% interval +0.056 to +0.098) and 0.035 on EmoryNLP (+0.017 to +0.053). Replacing the trained gate with equal weights at inference drops MELD from 0.438 to 0.349.
-- **Context adds little on MELD and DailyDialog.** Adaptive fusion vs the single-utterance model: +0.002 on MELD (p = 0.82) and +0.012 on DailyDialog (p = 0.29); vs concatenation: +0.010 on MELD (p = 0.23).
-- **On EmoryNLP, context helps.** Concatenation beats the single-utterance model by 0.022 (p = 0.009), adaptive fusion by 0.012 (p = 0.06). Its gate also gives history more weight than on MELD (23% vs 16% when all three sources exist). The single-utterance DistilBERT (0.270) is below TF-IDF + LR there.
+- **The learned gate matters.** Adaptive weighting beats fixed weighting by 0.077 on MELD (95% interval +0.056 to +0.098) and 0.035 on EmoryNLP (+0.017 to +0.053). Replacing the trained gate with equal weights at inference drops MELD from 0.438 to 0.349.
+- **Context adds little on MELD and DailyDialog.** Adaptive weighting vs the single-utterance model: +0.002 on MELD (p = 0.82) and +0.012 on DailyDialog (p = 0.29); vs concatenation: +0.010 on MELD (p = 0.23).
+- **On EmoryNLP, context helps.** Concatenation beats the single-utterance model by 0.022 (p = 0.009), adaptive weighting by 0.012 (p = 0.06). Its gate also gives history more weight than on MELD (23% vs 16% when all three sources exist). The single-utterance DistilBERT (0.270) is below TF-IDF + LR there.
 - **Speaker separation shows no clear gain** on MELD (0.438 separated vs 0.435 pooled, p = 0.56).
-- **Context length:** adaptive fusion rises slightly with k on MELD (0.434, 0.438, 0.443 for k = 1, 3, 5); concatenation stays flat.
-- **Cost:** on MELD, adaptive fusion takes 4.9 ms per utterance on the cluster GPU vs 4.0 ms for concatenation and single-utterance models.
-- **Per class (MELD):** fear (about 0.15 F1) and disgust (0.18–0.28) are the weakest classes for every model; adaptive fusion is best on disgust (0.277 vs 0.239 for single).
+- **Context length:** adaptive weighting rises slightly with k on MELD (0.434, 0.438, 0.443 for k = 1, 3, 5); concatenation stays flat.
+- **Cost:** on MELD, adaptive weighting takes 4.9 ms per utterance on the cluster GPU vs 4.0 ms for concatenation and single-utterance models.
+- **Per class (MELD):** fear (about 0.15 F1) and disgust (0.18–0.28) are the weakest classes for every model; adaptive weighting is best on disgust (0.277 vs 0.239 for single).
 
 Weighted-F1 is much higher than Macro-F1 (MELD about 0.61, DailyDialog about 0.84) because the frequent classes are easy, so report Macro-F1 first. Per-class F1 for every model is in [outputs/results_summary.md](outputs/results_summary.md).
 
@@ -142,37 +142,37 @@ Weighted-F1 is much higher than Macro-F1 (MELD about 0.61, DailyDialog about 0.8
 | concatenation − single | −0.009 (p = 0.22) | **+0.022** (+0.006 to +0.038, p = 0.009) | +0.010 (p = 0.25) |
 | adaptive − adaptive merged | +0.003 (p = 0.56) | | |
 
-Only three gaps are significant at 0.05: adaptive over fixed fusion on MELD and EmoryNLP, and concatenation over the single-utterance model on EmoryNLP. On DailyDialog, which has no speaker IDs, no difference is significant.
+Only three gaps are significant at 0.05: adaptive over fixed weighting on MELD and EmoryNLP, and concatenation over the single-utterance model on EmoryNLP. On DailyDialog, which has no speaker IDs, no difference is significant.
 
 ### Context window
 
-More history is not automatically better: adaptive fusion rises slightly with k, concatenation stays flat. MELD test Macro-F1:
+More history is not automatically better: adaptive weighting rises slightly with k, concatenation stays flat. MELD test Macro-F1:
 
 | Model | k = 1 | k = 3 | k = 5 |
 |---|---:|---:|---:|
-| Adaptive fusion | 0.434 ± 0.016 | 0.438 ± 0.006 | **0.443 ± 0.005** |
+| Adaptive weighting | 0.434 ± 0.016 | 0.438 ± 0.006 | **0.443 ± 0.005** |
 | Concatenation | 0.426 ± 0.008 | **0.428 ± 0.012** | 0.424 ± 0.003 |
-| Fixed fusion | 0.358 ± 0.008 | 0.361 ± 0.008 | **0.374 ± 0.007** |
+| Fixed weighting | 0.358 ± 0.008 | 0.361 ± 0.008 | **0.374 ± 0.007** |
 | Single (no history) | 0.437 ± 0.007 | | |
 
-- The rise for adaptive fusion (+0.009 from k = 1 to 5) is within the seed spread, so call it a trend, not a result. Its largest gain over Single is 0.006, at k = 5.
+- The rise for adaptive weighting (+0.009 from k = 1 to 5) is within the seed spread, so call it a trend, not a result. Its largest gain over Single is 0.006, at k = 5.
 - k = 1 is a weak test of speaker separation: with one previous turn, only 20% of MELD training utterances have any same-speaker history, against 65% at k = 3 and 69% at k = 5. About 10% of utterances open a dialogue and have no history at all.
 
 ### Inside the adaptive gate
 
-The gate learned to mostly ignore the history: it gives the current utterance 0.84 of the weight when all three sources exist, where fixed fusion gives 0.33. Mean weights on the MELD test set (adaptive fusion, k = 3, mean over seeds 42, 43 and 44; each seed within 0.01):
+The gate learned to mostly ignore the history: it gives the current utterance 0.84 of the weight when all three sources exist, where fixed weighting gives 0.33. Mean weights on the MELD test set (adaptive weighting, k = 3, mean over seeds 42, 43 and 44; each seed within 0.01):
 
-| Sources available | Test utterances | Current | Same speaker | Other speakers | Fixed fusion gives |
+| Sources available | Test utterances | Current | Same speaker | Other speakers | Fixed weighting gives |
 |---|---:|---:|---:|---:|---|
 | current only (first turn) | 280 (11%) | 1.00 | – | – | 1.00 |
 | current + one history group | 961 (37%) | 0.89 | 0.11 (whichever exists) | | 0.50 each |
 | all three | 1,369 (52%) | 0.84 | 0.11 | 0.05 | 0.33 each |
 
-- **This explains the main results.** Fixed fusion forces a third of the weight onto history and drops to 0.361. Forcing equal weights into the trained adaptive model drops it to 0.349. Adaptive fusion ties Single because it is mostly Single.
+- **This explains the main results.** Fixed weighting forces a third of the weight onto history and drops to 0.361. Forcing equal weights into the trained adaptive model drops it to 0.349. Adaptive weighting ties Single because it is mostly Single.
 - **Same-speaker history gets twice the weight of other-speaker history** (0.11 vs 0.05). This is the one sign that the model uses the speaker split.
 - **The weights barely change between utterances.** For 80% of utterances with all three sources, the current weight is between 0.79 and 0.88.
 - **They do not depend on length.** The correlation between utterance length and current weight is between −0.01 and +0.01 on every seed, so the idea that the gate leans on context for short replies is not supported.
-- **Short replies** (3 words or fewer, 27% of the MELD test set) are where context should matter most, yet Single, concatenation and adaptive fusion all score 0.506 on them over three seeds. The concatenation lead seen on seed 42 (+0.040) reverses on seeds 43 and 44 (−0.024 and −0.017).
+- **Short replies** (3 words or fewer, 27% of the MELD test set) are where context should matter most, yet Single, concatenation and adaptive weighting all score 0.506 on them over three seeds. The concatenation lead seen on seed 42 (+0.040) reverses on seeds 43 and 44 (−0.024 and −0.017).
 - **EmoryNLP's gate leans more on history:** 0.77 on the current utterance when all three sources exist (MELD 0.84), consistent with context helping there. With BERT and RoBERTa on MELD the gate gives 0.84 and 0.80; with BiLSTM it gives 1.00.
 
 Per-utterance weights: `outputs/runs/<dataset>_adaptive*_s<seed>/fusion_weights_test.csv`.
@@ -239,19 +239,19 @@ The gate costs 0.9% more parameters and about 25% more inference time than conca
 | TF-IDF + LR | 0.27M weights | – | 0.67 (CPU) | 0.360 |
 | Single | 66.37M | – | 3.96 | 0.437 |
 | Concatenation | 66.37M | – | 3.95 | 0.428 |
-| Fixed fusion | 66.37M | – | 4.65 | 0.361 |
-| Adaptive fusion | 66.96M | 0.59M | 4.94 | 0.438 |
+| Fixed weighting | 66.37M | – | 4.65 | 0.361 |
+| Adaptive weighting | 66.96M | 0.59M | 4.94 | 0.438 |
 | Adaptive merged | 66.76M | 0.39M | 4.73 | 0.435 |
 
 - The DistilBERT encoder is 66.36M of every neural model; the classifier head is 5,383 parameters.
-- Fusion is slower than concatenation because each history turn goes through the encoder separately (up to four passes at k = 3, instead of one longer one).
-- The pattern repeats on the other datasets: adaptive fusion is 21% slower than concatenation on EmoryNLP and 20% on DailyDialog.
+- Weighting is slower than concatenation because each history turn goes through the encoder separately (up to four passes at k = 3, instead of one longer one).
+- The pattern repeats on the other datasets: adaptive weighting is 21% slower than concatenation on EmoryNLP and 20% on DailyDialog.
 
 ### Other encoders
 
 MELD, k = 3, test Macro-F1 over three seeds. Every encoder sees the same word pieces under the same token budget, training settings and dev selection; recurrent encoders read DistilBERT's word-piece embeddings (frozen) and train for up to 10 epochs.
 
-| Encoder | Single | Concatenation | Fixed fusion | Adaptive fusion | Trained parameters | ms per utterance |
+| Encoder | Single | Concatenation | Fixed weighting | Adaptive weighting | Trained parameters | ms per utterance |
 |---|---:|---:|---:|---:|---:|---:|
 | DistilBERT | 0.437 ± 0.007 | 0.428 ± 0.012 | 0.361 ± 0.008 | 0.438 ± 0.006 | 66.4M | 4.0–4.9 |
 | BERT-base | 0.446 ± 0.004 | 0.459 ± 0.007 | 0.384 ± 0.002 | 0.457 ± 0.012 | 109.5M | 8.5–9.6 |
@@ -266,15 +266,15 @@ MELD, k = 3, test Macro-F1 over three seeds. Every encoder sees the same word pi
 Recurrent encoders also hold a frozen 23.4M word-piece embedding table. Latency is end to end at batch size 1 on one A40, from the fastest to the slowest architecture of each encoder.
 
 - **Larger encoders score higher, at twice the latency.** RoBERTa-base single beats DistilBERT single by 0.020 (p = 0.02); BERT-base by 0.010 (p = 0.21).
-- **The architecture ranking is the same for every Transformer.** Adaptive fusion and concatenation are level (BERT −0.002, RoBERTa −0.002, p ≥ 0.76), fixed fusion is 0.07 below adaptive (p < 0.001). With BERT and RoBERTa, both context models are about 0.011–0.014 above the single-utterance model (p = 0.07–0.16), a gain DistilBERT does not show.
-- **The gate behaves the same way in every Transformer:** it gives the current utterance 0.84 (DistilBERT), 0.84 (BERT) and 0.80 (RoBERTa) of the weight when all three sources exist. On BiLSTM it gives the current utterance all of the weight, so adaptive fusion equals the single-utterance model.
+- **The architecture ranking is the same for every Transformer.** Adaptive weighting and concatenation are level (BERT −0.002, RoBERTa −0.002, p ≥ 0.76), fixed weighting is 0.07 below adaptive (p < 0.001). With BERT and RoBERTa, both context models are about 0.011–0.014 above the single-utterance model (p = 0.07–0.16), a gain DistilBERT does not show.
+- **The gate behaves the same way in every Transformer:** it gives the current utterance 0.84 (DistilBERT), 0.84 (BERT) and 0.80 (RoBERTa) of the weight when all three sources exist. On BiLSTM it gives the current utterance all of the weight, so adaptive weighting equals the single-utterance model.
 - **Recurrent encoders are about four times faster than DistilBERT but at least 0.02 lower.** LSTM and GRU variants beat the best traditional model (0.382); the RNNs do not, and concatenating history hurts them (0.354 → 0.320 one-directional). Bidirectionality helps only the single-utterance RNN.
 
 ### Hyper-parameter sweep
 
 MELD, DistilBERT, k = 3: one setting changed at a time around the reference (learning rate 2e-5, batch size 16, dropout 0.1). Each configuration trains its single learning rate and selects the epoch on dev. Test Macro-F1 over three seeds:
 
-| Setting | Single | Adaptive fusion |
+| Setting | Single | Adaptive weighting |
 |---|---:|---:|
 | reference | 0.438 ± 0.004 | 0.438 ± 0.006 |
 | learning rate 1e-5 / 3e-5 / 5e-5 / 1e-4 | 0.424 / 0.442 / 0.432 / 0.427 | 0.417 / 0.430 / 0.438 / 0.415 |
@@ -283,7 +283,7 @@ MELD, DistilBERT, k = 3: one setting changed at a time around the reference (lea
 
 - **Learning rates from 2e-5 to 5e-5 form a plateau**; 1e-5 and 1e-4 lose 0.01–0.025.
 - **No change raises either model by more than 0.011**, and neither model wins under every setting: adaptive minus single ranges from −0.012 (learning rate 3e-5 and 1e-4) to +0.017 (batch size 8, dropout 0). The main comparison is therefore not an artefact of the chosen settings.
-- On dev, the best single change is dropout 0 for the single-utterance model (0.440 vs 0.428) and batch size 8 for adaptive fusion (0.448 vs 0.441); on test both stay within 0.01 of the reference.
+- On dev, the best single change is dropout 0 for the single-utterance model (0.440 vs 0.428) and batch size 8 for adaptive weighting (0.448 vs 0.441); on test both stay within 0.01 of the reference.
 
 Every setting with dev and test scores is in [outputs/hparams_summary.md](outputs/hparams_summary.md) and `outputs/hparams_sweep.csv`.
 
@@ -295,31 +295,31 @@ The honest story is a useful one: history only helps if the model can turn it do
 
 | Research question | Answer | Evidence |
 |---|---|---|
-| 1. Do 1, 3 or 5 previous turns help? | Barely on MELD: adaptive fusion rises slightly with k, concatenation does not. On EmoryNLP, concatenation beats Single by 0.022 (p = 0.009). | MELD adaptive 0.434 → 0.438 → 0.443; concatenation 0.426 → 0.428 → 0.424; Single 0.437 |
+| 1. Do 1, 3 or 5 previous turns help? | Barely on MELD: adaptive weighting rises slightly with k, concatenation does not. On EmoryNLP, concatenation beats Single by 0.022 (p = 0.009). | MELD adaptive 0.434 → 0.438 → 0.443; concatenation 0.426 → 0.428 → 0.424; Single 0.437 |
 | 2. Does separating the speaker's own history help? | No clear gain, but the gate does prefer it. | separated 0.438 vs pooled 0.435 (p = 0.56); same-speaker weight 0.11 vs other-speaker 0.05 |
 | 3. Do learned weights beat concatenation or equal weights? | Beat equal weights clearly; tie with concatenation. | vs fixed +0.077 (p < 0.001); vs concatenation +0.010 (p = 0.23); same with BERT and RoBERTa |
 
 **Script lines that are safe to say**
 
-- "Adaptive fusion has the best mean on MELD and DailyDialog, and the smallest spread across seeds of the four main models there. On EmoryNLP, concatenation and even TF-IDF are slightly ahead."
+- "Adaptive weighting has the best mean on MELD and DailyDialog, and the smallest spread across seeds of the four main models there. On EmoryNLP, concatenation and even TF-IDF are slightly ahead."
 - "Weighting matters: averaging the history with equal weights costs 7.7 points of Macro-F1, and a paired bootstrap confirms that gap."
 - "The gate weights have a physical meaning: how much the model trusts each source. It trusts the current utterance about 85%, and the speaker's own past twice as much as other people's."
 - "For these datasets, the current utterance carries most of the signal. Context is cheap to add but hard to use well. EmoryNLP is the exception: there context adds 2 points, and the gate leans more on history."
 - "A bigger encoder helps more than context: RoBERTa-base adds 2 points over DistilBERT at twice the latency, and the ranking of the architectures stays the same."
-- "Fusion costs about 25% more inference time than concatenation, for no accuracy gain here."
+- "Weighting costs about 25% more inference time than concatenation, for no accuracy gain here."
 
 **Do not say**
 
-- That adaptive fusion improves over Single or concatenation: p = 0.82 and 0.23 over three seeds.
+- That adaptive weighting improves over Single or concatenation: p = 0.82 and 0.23 over three seeds.
 - That context or speaker separation helps in general: only EmoryNLP shows a significant context gain.
 - That the gate helps most on short replies: its weights do not depend on length, and every model scores 0.506 on them.
-- That DailyDialog's fusion numbers test speaker separation: it has no speaker IDs, so it uses the merged versions.
+- That DailyDialog's weighting numbers test speaker separation: it has no speaker IDs, so it uses the merged versions.
 - Any comparison with published state-of-the-art numbers: they use larger encoders, other metrics (often Weighted-F1) and other preprocessing.
 
 **Likely questions**
 
 - *"0.44 Macro-F1 looks close to guessing."* Guessing the majority class gives 0.093. Seven imbalanced classes and noisy labels keep scores low: in MELD train, 105 distinct texts carry more than one gold label, and "what?" is labelled surprise 39 times and neutral 21 times. Weighted-F1 is 0.61.
-- *"Why does fixed fusion do so badly?"* It forces a third of the weight onto history. Averaged history drowns the current utterance; the gate learns to turn it down to about 15%.
+- *"Why does fixed weighting do so badly?"* It forces a third of the weight onto history. Averaged history drowns the current utterance; the gate learns to turn it down to about 15%.
 - *"Then what is the contribution?"* A controlled comparison: every model sees the same text under the same token budget, so differences come from how context is combined. It shows that a cheap, interpretable gate recovers what equal weights lose.
 - *"Why DistilBERT?"* The project is about lightweight models: 66M parameters and under 5 ms per utterance. RoBERTa-base scores 0.02 higher at twice the latency (8.6 vs 4.0 ms), and the ranking of the architectures stays the same.
 - *"How do you know you did not tune on the test set?"* Every choice (learning rate, epoch, grid point) is made on dev Macro-F1; each checkpoint is scored on test once.
@@ -342,7 +342,7 @@ Everything below is on `main`, including the run folders of both GPU batches. Re
 
 | Topic | Where | Status |
 |---|---|---|
-| Related work, CoMPM comparison, fusion formula, gate size | [Method](#method), [Models compared](#models-compared), [docs/TECHNICAL.md §4](docs/TECHNICAL.md#4-models) | Now |
+| Related work, CoMPM comparison, weighting formula, gate size | [Method](#method), [Models compared](#models-compared), [docs/TECHNICAL.md §4](docs/TECHNICAL.md#4-models) | Now |
 | Architecture code | [models/neural.py](models/neural.py) (`FusionClassifier`) | Now |
 | Datasets, splits, labels, imbalance, duplicates | [docs/DATA.md](docs/DATA.md) (columns used, cleaning steps), [docs/TECHNICAL.md §2](docs/TECHNICAL.md#2-data), [outputs/data_audit.md](outputs/data_audit.md) | Now |
 | Training settings and why | [docs/TECHNICAL.md §5 and §9](docs/TECHNICAL.md#5-training-and-model-selection) | Now |
@@ -452,8 +452,8 @@ Hyperparameters are defined in the YAML files generated by `configs/generate_con
 | `meld/tfidf_lr.yaml` | Traditional text-classification baseline | Deterministic |
 | `meld/single_s*.yaml` | Current utterance only | 42, 43, 44 |
 | `meld/concat_k3_s*.yaml` | Context concatenation | 42, 43, 44 |
-| `meld/fixed_k3_s*.yaml` | Equal-weight speaker-aware fusion | 42, 43, 44 |
-| `meld/adaptive_k3_s*.yaml` | Learned speaker-aware fusion | 42, 43, 44 |
+| `meld/fixed_k3_s*.yaml` | Equal-weight speaker-aware weighting | 42, 43, 44 |
+| `meld/adaptive_k3_s*.yaml` | Learned speaker-aware weighting | 42, 43, 44 |
 | `meld/adaptive_merged_k3_s*.yaml` | Ablation: merge same/other speaker history | 42, 43, 44 |
 | `meld/{concat,fixed,adaptive}_k{1,3,5}_s*.yaml` | Effect of context length | 42, 43, 44 |
 
@@ -472,8 +472,8 @@ Hyperparameters are defined in the YAML files generated by `configs/generate_con
 | `dailydialog/tfidf_lr.yaml` | Traditional baseline | Deterministic |
 | `dailydialog/single_s*.yaml` | Current utterance only | 42, 43, 44 |
 | `dailydialog/concat_k3_s*.yaml` | Concatenate the previous three turns | 42, 43, 44 |
-| `dailydialog/fixed_merged_k3_s*.yaml` | Equal-weight current/history fusion | 42, 43, 44 |
-| `dailydialog/adaptive_merged_k3_s*.yaml` | Learned current/history fusion | 42, 43, 44 |
+| `dailydialog/fixed_merged_k3_s*.yaml` | Equal-weight current/history weighting | 42, 43, 44 |
+| `dailydialog/adaptive_merged_k3_s*.yaml` | Learned current/history weighting | 42, 43, 44 |
 
 DailyDialog uses the merged-history variants because speaker identities are not available. Its results should be reported separately from the MELD speaker-separation ablation.
 
@@ -483,7 +483,7 @@ DailyDialog uses the merged-history variants because speaker identities are not 
 |---|---|---|
 | `meld/{bert,roberta}_single_s*.yaml`, `meld/{bert,roberta}_{concat,fixed,adaptive}_k3_s*.yaml` | Same architectures with BERT-base or RoBERTa-base instead of DistilBERT | 42, 43, 44 |
 | `meld/{rnn,birnn,lstm,bilstm,gru,bigru}_single_s*.yaml`, `..._concat_k3_s*.yaml` | Recurrent encoders over DistilBERT's frozen word-piece embeddings | 42, 43, 44 |
-| `meld/bilstm_{fixed,adaptive}_k3_s*.yaml` | Fusion on a recurrent encoder | 42, 43, 44 |
+| `meld/bilstm_{fixed,adaptive}_k3_s*.yaml` | Weighting on a recurrent encoder | 42, 43, 44 |
 | `<dataset>/{binary,tf,tfidf,bm25}_{lr,svm,mnb,cnb,rf}.yaml` | Term weighting × classifier, current utterance only (CPU) | Deterministic |
 | `meld/sweep_{single,adaptive_k3}_{lr*,bs*,do*}_s*.yaml` | Learning rate, batch size and dropout changed one at a time | 42, 43, 44 |
 
@@ -493,8 +493,8 @@ Model size, from [outputs/model_details.md](outputs/model_details.md) (MELD, 7 c
 
 | Model | Parameters | Trained parameters |
 |---|---:|---:|
-| DistilBERT: single, concatenation, fixed fusion | 66.37M | 66.37M |
-| DistilBERT: adaptive fusion (gate 0.59M, 0.9%) | 66.96M | 66.96M |
+| DistilBERT: single, concatenation, fixed weighting | 66.37M | 66.37M |
+| DistilBERT: adaptive weighting (gate 0.59M, 0.9%) | 66.96M | 66.96M |
 | BERT-base / RoBERTa-base, single | 109.49M / 124.65M | all |
 | RNN, LSTM, GRU and bidirectional variants, single | 23.7M–25.5M | 0.26M–2.10M (word-piece embeddings frozen) |
 | TF-IDF + LR | 0.27M weights (38,290 features × 7 classes) | all |
@@ -579,7 +579,7 @@ The dataset preparation script downloads the archive and extracts the required d
 | `outputs/runs/<run_name>/metrics_test.json` | Test metrics and per-class evaluation |
 | `outputs/runs/<run_name>/predictions_dev.csv` | Per-utterance dev predictions and probabilities |
 | `outputs/runs/<run_name>/predictions_test.csv` | Per-utterance test predictions and probabilities |
-| `outputs/runs/<run_name>/fusion_weights_*.csv` | Fusion source availability and weights |
+| `outputs/runs/<run_name>/fusion_weights_*.csv` | Weighting source availability and weights |
 | `outputs/runs/<run_name>/` | Configuration, logs, per-epoch dev metrics and latency outputs (checkpoints stay on the cluster, git-ignored) |
 | `outputs/flagged_dialogues.csv` | Dialogues flagged for overlap or duplication |
 | `outputs/data_audit.md` | Dataset audit and preprocessing notes |
@@ -602,7 +602,7 @@ models/
   tfidf_lr.py        TF-IDF + Logistic Regression
   classical.py       Term weighting x classifier baselines
   batching.py        Token budgets and neural batch construction
-  neural.py          Neural models: Transformer and RNN/LSTM/GRU encoders, fusion
+  neural.py          Neural models: Transformer and RNN/LSTM/GRU encoders, weighting
   trainer.py         Training, validation and checkpoints
 eval/
   metrics.py         Classification metrics
@@ -636,3 +636,7 @@ tests/               Unit and integration tests
 - Lee & Lee (2022). *CoMPM: Context Modeling with Speaker's Pre-trained Memory Tracking for Emotion Recognition in Conversation*. NAACL.
 - Sanh et al. (2019). *DistilBERT, a distilled version of BERT*. NeurIPS EMC² Workshop.
 - Li et al. (2017). *DailyDialog: A Manually Labelled Multi-turn Dialogue Dataset*. IJCNLP.
+
+## A note on naming
+
+Some code identifiers, configuration keys and file names still use the word "fusion", for example `FusionClassifier`, the `fusion:` block in each config and `fusion_weights_test.csv`. Wherever it appears, it means the adaptive weighting described above: the learned gate that sets how much the model trusts the current utterance, the speaker's own history and the other speakers' history.

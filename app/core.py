@@ -57,12 +57,12 @@ MODEL_INFO: Dict[str, ModelInfo] = {
     "tfidf_lr": ModelInfo("TF-IDF + LR", "TF-IDF", "Bag of n-grams of the current utterance; no context."),
     "single": ModelInfo("DistilBERT (single)", "Single", "Current utterance only."),
     "concat": ModelInfo("Concat", "Concat", "Current utterance and the previous k turns in one sequence."),
-    "fixed": ModelInfo("Fixed fusion", "Fixed", "Equal weights over current / same-speaker / other-speaker."),
-    "adaptive": ModelInfo("Adaptive fusion", "Adaptive",
+    "fixed": ModelInfo("Fixed weighting", "Fixed", "Equal weights over current / same-speaker / other-speaker."),
+    "adaptive": ModelInfo("Adaptive weighting", "Adaptive",
                           "Learned per-utterance weights over current / same-speaker / other-speaker."),
-    "fixed_merged": ModelInfo("Fixed fusion (merged)", "Fixed-merged",
+    "fixed_merged": ModelInfo("Fixed weighting (merged)", "Fixed-merged",
                               "Equal weights over current / all history (no speaker split)."),
-    "adaptive_merged": ModelInfo("Adaptive fusion (merged)", "Adaptive-merged",
+    "adaptive_merged": ModelInfo("Adaptive weighting (merged)", "Adaptive-merged",
                                  "Learned weights over current / all history (no speaker split)."),
 }
 MODEL_ORDER = list(MODEL_INFO)
@@ -244,7 +244,7 @@ class Prediction:
     labels: List[str]
     probs: np.ndarray  # (N, L)
     ms: float  # wall time for the whole dialogue, including tokenisation
-    weights: Optional[np.ndarray] = None  # (N, S) fusion weights; 0 where unavailable
+    weights: Optional[np.ndarray] = None  # (N, S) gate weights; 0 where unavailable
     avail: Optional[np.ndarray] = None  # (N, S) bool
     source_names: List[str] = field(default_factory=list)
 
@@ -353,7 +353,7 @@ class SavedPredictor:
     """Replays a run's saved test-set outputs (predictions_test.csv, fusion_weights_test.csv).
 
     Used when a neural run's CSVs are available but its checkpoint is not. It can only answer for
-    utterances of the official test split, looked up by utterance_id; probabilities and fusion weights are
+    utterances of the official test split, looked up by utterance_id; probabilities and gate weights are
     exactly what the trained model produced on the cluster.
     """
 
