@@ -151,15 +151,11 @@ RoBERTa-base with concatenation is the most accurate model, but at 1.9× the par
 
 Changing the learning rate (1e-5 to 1e-4), batch size (8, 32) or dropout (0, 0.3) one at a time raises neither single nor adaptive by more than 0.011, and neither wins under every setting (adaptive − single from −0.012 to +0.017), so the comparison is not an artefact of the chosen settings. The gate adds 0.9% parameters but about 25% latency over concatenation (4.9 vs 4.0 ms), because each history turn is encoded separately.
 
-## Remaining work
+## Future work
 
-All experiments are finished; what is left is analysis and presentation.
-
-- [ ] Peer walkthrough of the demo with 3–5 classmates as proxy users: load a dialogue, find a model disagreement, change the context, describe what changed; report it as an exploratory usability check.
-- [ ] Copy the four MELD seed-42 checkpoints from the cluster so the demo can also predict dialogues typed in live (about 1 GB; saved test-set predictions already work).
-- [ ] Error analysis of minority classes (fear, disgust) and of utterances where a speaker's emotion changes.
-- [ ] Repeat the key numbers without the dialogues flagged as re-used scenes or duplicates.
-- [ ] Video integration, group reflection, contribution records and peer evaluation.
+- Error analysis of the minority classes (fear, disgust) and of utterances where a speaker's emotion changes.
+- Repeat the key numbers without the dialogues flagged as re-used scenes or duplicates.
+- A small usability study of the demo: users load a dialogue, find a model disagreement, change the context and describe what changed.
 
 ## References
 

@@ -44,7 +44,7 @@ concatenation on an A40.
 
 ## Where the numbers come from
 
-- [README, Results so far](../README.md#results-so-far): main table, significance tests, context window,
+- [README, Results](../README.md#results): main table, significance tests, context window,
   gate analysis and other encoders.
 - [outputs/results_summary.md](../outputs/results_summary.md): every model, per-class F1 and latency.
 - `outputs/runs/<dataset>_adaptive*_s<seed>/fusion_weights_test.csv`: the gate's weights for every test

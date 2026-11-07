@@ -13,7 +13,7 @@ the decisions that refine the original proposal.
 5. [Training and model selection](#5-training-and-model-selection)
 6. [Evaluation](#6-evaluation)
 7. [Experiment matrix and compute](#7-experiment-matrix-and-compute)
-8. [Results so far](#8-results-so-far)
+8. [Results](#8-results)
 9. [Decisions that refine the proposal](#9-decisions-that-refine-the-proposal)
 10. [Engineering: reproducibility and testing](#10-engineering-reproducibility-and-testing)
 11. [Limitations and risks](#11-limitations-and-risks)
@@ -313,11 +313,10 @@ first. All GPU runs used one NVIDIA A40 of NTU EEE Cluster 02 (`cluster/train.sb
 comparable: 7.75 h for the original study and 7.66 h for the second batch (Transformer encoders 2.96 h,
 recurrent encoders 2.30 h, sweep 2.19 h, EmoryNLP single 0.22 h; per run in `outputs/run_all_status.log`). Disk use is about 0.25 GB per finished run (one checkpoint), about 11 GB in total.
 
-## 8. Results so far
+## 8. Results
 
 The original study (57 configurations) has finished on one A40. Test Macro-F1 at k = 3, mean ± std over
-three seeds (full tables, per-class F1 and latency in `outputs/results_summary.md`; analysis in
-`docs/HANDOVER2.md`):
+three seeds (full tables, per-class F1 and latency in `outputs/results_summary.md`):
 
 | model | MELD | EmoryNLP | DailyDialog |
 |---|---:|---:|---:|

@@ -1,6 +1,6 @@
 # Showing hyper-parameter effects
 
-**For:** the Streamlit demo and the presentation. This page explains which hyper-parameter effects we
+This page explains which hyper-parameter effects we
 can show, where the numbers come from, what changed in the code to provide them, and how to plot them.
 
 ## What we can show

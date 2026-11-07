@@ -1,7 +1,7 @@
 #!/bin/bash
 # Step 4 (GPU job): all experiments, or a subset selected by config-path patterns.
 #   sbatch cluster/train.sbatch                 # everything, one GPU
-#   sbatch cluster/train.sbatch tfidf _s42      # parallel jobs: one per seed (see docs/HANDOVER.md)
+#   sbatch cluster/train.sbatch tfidf _s42      # parallel jobs: one per seed
 # Safe to resubmit after a time limit or requeue: finished runs are skipped, the rest resume.
 # Keep the same GPU model for every training job (latency is compared across models).
 #SBATCH --job-name=ee6405-train

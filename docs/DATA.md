@@ -1,6 +1,6 @@
 # Data: sources, columns and cleaning
 
-**For:** anyone presenting the datasets (slide 7) or reusing the processed files. It lists which raw
+This page lists which raw
 columns each dataset provides, which ones the project uses, and every change made between the raw files
 and `data/processed/`. The code is `data/loaders.py` (conversion) and `prepare_data.py` (download,
 checks, audit); `notebooks/data_cleaning.ipynb` re-counts each step for MELD and EmoryNLP.

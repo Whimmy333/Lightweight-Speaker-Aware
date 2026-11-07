@@ -11,17 +11,15 @@ DailyDialog does not provide explicit speaker IDs in the standard text release. 
 
 **Live demo: [Undertone](https://lightweight-speaker-aware-undertone-group33.streamlit.app/)** reads the mood of any chat with our adaptive weighting model. No installation needed; to run it yourself, see [Run Undertone yourself](#run-undertone-yourself).
 
-> **Status.** All 237 configurations have finished: the original study (57), the EmoryNLP single-utterance baseline, the other encoders, the traditional term-weighting × classifier baselines and the hyper-parameter sweep. Every run folder (without checkpoints) is in `outputs/runs/`; the results are in [outputs/results_summary.md](outputs/results_summary.md) and summarised under [Results so far](#results-so-far). Everything is on `main`; `feature/dailydialog-support` has been merged. **Preparing the video?** See [For the presentation: how to say it](#for-the-presentation-how-to-say-it) and [where to find things](#for-the-presentation-where-to-find-things).
+> **Status.** All 237 configurations have finished: the original study (57), the EmoryNLP single-utterance baseline, the other encoders, the traditional term-weighting × classifier baselines and the hyper-parameter sweep. Every run folder (without checkpoints) is in `outputs/runs/`; the results are in [outputs/results_summary.md](outputs/results_summary.md) and summarised under [Results](#results).
 
 | Document | Purpose |
 |---|---|
 | [docs/PROPOSAL.md](docs/PROPOSAL.md) | Group proposal, revised with the final results (replaces the original PDF) |
 | [docs/WHEN_CONTEXT_HELPS.md](docs/WHEN_CONTEXT_HELPS.md) | The title question answered: when context helps, when it does not, and why |
 | [docs/TECHNICAL.md](docs/TECHNICAL.md) | Data, models, protocol, decisions and limitations |
-| [docs/HANDOVER2.md](docs/HANDOVER2.md) | Analysis of the first GPU batch (main results, ablations, latency) |
 | [docs/HYPERPARAMETERS.md](docs/HYPERPARAMETERS.md) | Hyper-parameter effects: data files and plotting examples |
 | [app/README.md](app/README.md) | Streamlit demo, two versions (research demo and Undertone) |
-| [docs/HANDOVER.md](docs/HANDOVER.md), [docs/HANDOVER3.md](docs/HANDOVER3.md) | Running the first and second GPU batches on NTU EEE Cluster 02 |
 | [docs/DATA.md](docs/DATA.md) | Data sources, raw columns used, processed format and every cleaning step |
 | [notebooks/data_cleaning.ipynb](notebooks/data_cleaning.ipynb) | Data cleaning and checks |
 | [outputs/data_audit.md](outputs/data_audit.md) | Split sizes, labels, duplicates and overlap checks |
@@ -133,9 +131,9 @@ The app opens at http://localhost:8501. On the first start it downloads what the
 
 The research demo with every model and dataset runs with `streamlit run app/streamlit_app.py`; see [app/README.md](app/README.md).
 
-## Results so far
+## Results
 
-Test Macro-F1 of the original study, k = 3, mean ± std over seeds 42, 43 and 44 (TF-IDF + LR is one deterministic run). Checkpoints were selected on dev Macro-F1. Source: [outputs/results_summary.md](outputs/results_summary.md); analysis: [docs/HANDOVER2.md](docs/HANDOVER2.md).
+Test Macro-F1 of the original study, k = 3, mean ± std over seeds 42, 43 and 44 (TF-IDF + LR is one deterministic run). Checkpoints were selected on dev Macro-F1. Source: [outputs/results_summary.md](outputs/results_summary.md).
 
 | Model | MELD | EmoryNLP | DailyDialog |
 |---|---:|---:|---:|
@@ -315,9 +313,7 @@ Every setting with dev and test scores is in [outputs/hparams_summary.md](output
 
 ---
 
-## For the presentation: how to say it
-
-The honest story is a useful one: history only helps if the model can turn it down, and our gate learns to do exactly that. Answers to the three research questions (slides 15 and 18):
+## Answers to the research questions
 
 | Research question | Answer | Evidence |
 |---|---|---|
@@ -325,78 +321,11 @@ The honest story is a useful one: history only helps if the model can turn it do
 | 2. Does separating the speaker's own history help? | No clear gain, but the gate does prefer it. | separated 0.438 vs pooled 0.435 (p = 0.56); same-speaker weight 0.11 vs other-speaker 0.05 |
 | 3. Do learned weights beat concatenation or equal weights? | Beat equal weights clearly; tie with concatenation. | vs fixed +0.077 (p < 0.001); vs concatenation +0.010 (p = 0.23); same with BERT and RoBERTa |
 
-**Script lines that are safe to say**
-
-- "Adaptive weighting has the best mean on MELD and DailyDialog, and the smallest spread across seeds of the four main models there. On EmoryNLP, concatenation and even TF-IDF are slightly ahead."
-- "Weighting matters: averaging the history with equal weights costs 7.7 points of Macro-F1, and a paired bootstrap confirms that gap."
-- "The gate weights have a physical meaning: how much the model trusts each source. It trusts the current utterance about 85%, and the speaker's own past twice as much as other people's."
-- "For these datasets, the current utterance carries most of the signal. Context is cheap to add but hard to use well. EmoryNLP is the exception: there context adds 2 points, and the gate leans more on history."
-- "A bigger encoder helps more than context: RoBERTa-base adds 2 points over DistilBERT at twice the latency, and the ranking of the architectures stays the same."
-- "Weighting costs about 25% more inference time than concatenation, for no accuracy gain here."
-
-**Do not say**
-
-- That adaptive weighting improves over Single or concatenation: p = 0.82 and 0.23 over three seeds.
-- That context or speaker separation helps in general: only EmoryNLP shows a significant context gain.
-- That the gate helps most on short replies: its weights do not depend on length, and every model scores 0.506 on them.
-- That DailyDialog's weighting numbers test speaker separation: it has no speaker IDs, so it uses the merged versions.
-- Any comparison with published state-of-the-art numbers: they use larger encoders, other metrics (often Weighted-F1) and other preprocessing.
-
-**Likely questions**
-
-- *"0.44 Macro-F1 looks close to guessing."* Guessing the majority class gives 0.093. Seven imbalanced classes and noisy labels keep scores low: in MELD train, 105 distinct texts carry more than one gold label, and "what?" is labelled surprise 39 times and neutral 21 times. Weighted-F1 is 0.61.
-- *"Why does fixed weighting do so badly?"* It forces a third of the weight onto history. Averaged history drowns the current utterance; the gate learns to turn it down to about 15%.
-- *"Then what is the contribution?"* A controlled comparison: every model sees the same text under the same token budget, so differences come from how context is combined. It shows that a cheap, interpretable gate recovers what equal weights lose.
-- *"Why DistilBERT?"* The project is about lightweight models: 66M parameters and under 5 ms per utterance. RoBERTa-base scores 0.02 higher at twice the latency (8.6 vs 4.0 ms), and the ranking of the architectures stays the same.
-- *"How do you know you did not tune on the test set?"* Every choice (learning rate, epoch, grid point) is made on dev Macro-F1; each checkpoint is scored on test once.
-
 ---
 
-## For the presentation: where to find things
+## Rebuilding the result tables
 
-Everything below is on `main`, including the run folders of both GPU batches. Rebuild the tables after new runs arrive (see the end of this section).
-
-**A: problem, audience and research questions (slides 1–4, 18–19)**
-
-| Topic | Where | Status |
-|---|---|---|
-| Problem, audience, purpose | The group proposal (PDF, not in the repository); [Why this project is useful](#why-this-project-is-useful) | Now |
-| Problem statement and the three research questions | [docs/TECHNICAL.md §1](docs/TECHNICAL.md#1-problem-and-research-questions) | Now |
-| Answers to the research questions, script lines, likely questions | [For the presentation: how to say it](#for-the-presentation-how-to-say-it), [Results so far](#results-so-far) (with significance tests) | Now |
-
-**B: idea, architecture, data and design choices (slides 5–9)**
-
-| Topic | Where | Status |
-|---|---|---|
-| Related work, CoMPM comparison, weighting formula, gate size | [Method](#method), [Models compared](#models-compared), [docs/TECHNICAL.md §4](docs/TECHNICAL.md#4-models) | Now |
-| Architecture code | [models/neural.py](models/neural.py) (`FusionClassifier`) | Now |
-| Datasets, splits, labels, imbalance, duplicates | [docs/DATA.md](docs/DATA.md) (columns used, cleaning steps), [docs/TECHNICAL.md §2](docs/TECHNICAL.md#2-data), [outputs/data_audit.md](outputs/data_audit.md) | Now |
-| Training settings and why | [docs/TECHNICAL.md §5 and §9](docs/TECHNICAL.md#5-training-and-model-selection) | Now |
-| Parameter counts per model, full hyper-parameter table, learning rate and epoch each run selected | [outputs/model_details.md](outputs/model_details.md) (`python -m eval.model_details`); summary under [Model comparison](#model-comparison-other-encoders-and-traditional-baselines) | Now |
-| How hyper-parameters change results | [docs/HYPERPARAMETERS.md](docs/HYPERPARAMETERS.md), [outputs/hparams_summary.md](outputs/hparams_summary.md), [outputs/hparams_grid.csv](outputs/hparams_grid.csv) | Now |
-| Engineering: pinned data, config generator, resumable runs, tests | [docs/TECHNICAL.md §10](docs/TECHNICAL.md#10-engineering-reproducibility-and-testing), [tests/](tests/) (`python -m pytest -q`: 114 tests) | Now |
-
-**C: experiments and results (slides 10–14)**
-
-| Topic | Where | Status |
-|---|---|---|
-| Baselines, metrics, seeds, selection protocol | [docs/TECHNICAL.md §6–7](docs/TECHNICAL.md#6-evaluation) | Now |
-| Main comparison, per-class F1, latency | [Results so far](#results-so-far), [Model size and speed](#model-size-and-speed); [outputs/results_summary.md](outputs/results_summary.md) "main comparison" | Now |
-| Chart data (mean and std per model, dataset and k) | [outputs/results_summary.csv](outputs/results_summary.csv); per seed: [outputs/results_runs.csv](outputs/results_runs.csv) | Now |
-| Context length (k = 1, 3, 5) and ablations | [Context window](#context-window), [Inside the adaptive gate](#inside-the-adaptive-gate); [outputs/results_summary.md](outputs/results_summary.md) "context length", "ablations" | Now |
-| GPU time per configuration | [outputs/run_all_status.log](outputs/run_all_status.log) (one A40: 7.75 h for the original study, 7.66 h for the second batch) | Now |
-| Other encoders (BERT, RoBERTa, RNN/LSTM/GRU), term weighting × classifier, sweep | [Other encoders](#other-encoders), [Traditional baselines](#traditional-baselines), [Hyper-parameter sweep](#hyper-parameter-sweep); `outputs/results_summary.md` "encoder comparison", "term weighting x classifier"; chart data in [outputs/results_comparison.csv](outputs/results_comparison.csv) | Now |
-
-**D: interpretation and demo (slides 15–17)**
-
-| Topic | Where | Status |
-|---|---|---|
-| What the results mean, what not to overstate | [For the presentation: how to say it](#for-the-presentation-how-to-say-it), [docs/HANDOVER2.md](docs/HANDOVER2.md) | Now |
-| Gate weights per utterance (how much the model trusts each source) | [Inside the adaptive gate](#inside-the-adaptive-gate); `outputs/runs/<dataset>_adaptive*_s<seed>/fusion_weights_test.csv`, e.g. [MELD seed 42](outputs/runs/meld_adaptive_k3_s42/fusion_weights_test.csv) | Now |
-| Limitations | [docs/TECHNICAL.md §11](docs/TECHNICAL.md#11-limitations-and-risks) | Now |
-| Live demo | [app/](app/) (two versions: the research demo `app/streamlit_app.py` and the consumer-style `app/undertone_app.py`; setup in [app/README.md](app/README.md)) | Now |
-
-**Rebuilding the tables.** Each command reads `outputs/runs/`, so run it after pulling new run folders:
+Each command reads `outputs/runs/`, so run it after pulling new run folders:
 
 ```bash
 python -m eval.aggregate        # results_summary.md / .csv, results_comparison.csv
@@ -421,7 +350,7 @@ sbatch cluster/gpu_check.sbatch
 sbatch cluster/train.sbatch
 ```
 
-Review [docs/HANDOVER.md](docs/HANDOVER.md) for the cluster-specific setup and execution instructions. Check that its scripts include the new DailyDialog configurations before using them for the full experiment matrix.
+The job scripts are in [cluster/](cluster/); `cluster/env.sh` holds the shared environment setup.
 
 ### In a local Python environment
 
@@ -644,7 +573,7 @@ configs/
   dailydialog/       DailyDialog configurations
 cluster/             Slurm scripts for NTU EEE Cluster 02
 notebooks/           Data-cleaning notebook
-docs/                Technical notes and handover instructions
+docs/                Proposal and technical notes
 outputs/             Audits, run outputs and aggregate results
 app/                 Streamlit demo
 tests/               Unit and integration tests
