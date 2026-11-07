@@ -64,7 +64,6 @@ header[data-testid="stHeader"] {background: transparent;}
 .brand {font-size: 3.1rem; font-weight: 800; letter-spacing: -.03em; line-height: 1;
         background: linear-gradient(90deg, #e0457b, #7c4dff); -webkit-background-clip: text; background-clip: text; color: transparent;}
 .tagline {font-size: 1.25rem; color: #5b5168; margin-top: 6px;}
-.tagline .zh {color: #e0457b; font-weight: 600; margin-left: 8px;}
 .props {display: flex; gap: 10px; flex-wrap: wrap;}
 .props span {background: #ffffffcc; border: 1px solid #ece6f2; border-radius: 999px; padding: 7px 14px; font-size: .95rem;
              color: #3d3350; box-shadow: 0 2px 10px rgba(124,77,255,.06);}
@@ -221,7 +220,7 @@ def card(title: str, body: str) -> str:
 
 st.markdown(
     '<div class="hero"><div><div class="brand">Undertone</div>'
-    '<div class="tagline">Hear what they really mean.<span class="zh">读懂TA的情绪</span></div></div>'
+    '<div class="tagline">Hear what they really mean.</div></div>'
     '<div class="props"><span>💬 A mood for every message</span><span>🧭 See whose words shaped it</span>'
     '<span>🔒 Runs on this device, nothing is uploaded</span></div></div>',
     unsafe_allow_html=True,
