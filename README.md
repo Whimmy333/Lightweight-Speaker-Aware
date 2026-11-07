@@ -18,7 +18,7 @@ DailyDialog does not provide explicit speaker IDs in the standard text release. 
 | [docs/TECHNICAL.md](docs/TECHNICAL.md) | Data, models, protocol, decisions and limitations |
 | [docs/HANDOVER2.md](docs/HANDOVER2.md) | Analysis of the first GPU batch (main results, ablations, latency) |
 | [docs/HYPERPARAMETERS.md](docs/HYPERPARAMETERS.md) | Hyper-parameter effects: data files and plotting examples |
-| [app/README.md](app/README.md) | Streamlit demo |
+| [app/README.md](app/README.md) | Streamlit demo, two versions (research demo and Undertone) |
 | [docs/HANDOVER.md](docs/HANDOVER.md), [docs/HANDOVER3.md](docs/HANDOVER3.md) | Running the first and second GPU batches on NTU EEE Cluster 02 |
 | [docs/DATA.md](docs/DATA.md) | Data sources, raw columns used, processed format and every cleaning step |
 | [notebooks/data_cleaning.ipynb](notebooks/data_cleaning.ipynb) | Data cleaning and checks |
@@ -368,7 +368,7 @@ Everything below is on `main`, including the run folders of both GPU batches. Re
 | What the results mean, what not to overstate | [For the presentation: how to say it](#for-the-presentation-how-to-say-it), [docs/HANDOVER2.md](docs/HANDOVER2.md) | Now |
 | Gate weights per utterance (how much the model trusts each source) | [Inside the adaptive gate](#inside-the-adaptive-gate); `outputs/runs/<dataset>_adaptive*_s<seed>/fusion_weights_test.csv`, e.g. [MELD seed 42](outputs/runs/meld_adaptive_k3_s42/fusion_weights_test.csv) | Now |
 | Limitations | [docs/TECHNICAL.md §11](docs/TECHNICAL.md#11-limitations-and-risks) | Now |
-| Live demo | [app/](app/) (`streamlit run app/streamlit_app.py`; setup in [app/README.md](app/README.md)) | Now |
+| Live demo | [app/](app/) (two versions: the research demo `app/streamlit_app.py` and the consumer-style `app/undertone_app.py`; setup in [app/README.md](app/README.md)) | Now |
 
 **Rebuilding the tables.** Each command reads `outputs/runs/`, so run it after pulling new run folders:
 

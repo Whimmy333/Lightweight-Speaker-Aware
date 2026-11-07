@@ -430,6 +430,52 @@ def model_sizes(dataset: str, k: int = 3, configs_dir: Path = CONFIGS_DIR) -> pd
     return pd.DataFrame(rows)
 
 
+# ---------------------------------------------------------------- gate weights
+
+def gate_summary(dataset: str, model: str, k: int = DEMO_K, configs_dir: Path = CONFIGS_DIR,
+                 runs_dir: Path = RUNS_DIR) -> pd.DataFrame:
+    """Mean learned weight per source on the test set, grouped by which sources each utterance has.
+
+    Reads ``fusion_weights_test.csv`` of every seed of ``model`` at ``k`` that has one. One row per group
+    (first turn, one history group or current + history, all three sources) plus "all test lines": ``n``
+    utterances, ``share`` of the test set, one column per source (mean over seeds of the per-seed mean),
+    ``spread`` (largest gap between seeds on any of those means) and ``n_seeds``. Empty if no file exists.
+    """
+    per_seed = []
+    for spec in config_specs(dataset, configs_dir):
+        path = runs_dir / spec.run_name / "fusion_weights_test.csv"
+        if spec.model != model or spec.k != k or not path.is_file():
+            continue
+        d = pd.read_csv(path)
+        merged = bool((d["source_mode"] == "merged").all())
+        keys = ["current", "history"] if merged else ["current", "same", "other"]
+        names = SOURCE_NAMES[len(keys)]
+        n_hist = (d["avail_history"] if merged else d["avail_same"].fillna(0) + d["avail_other"].fillna(0))
+        labels = (["first turn (no history)", "current + history"] if merged else
+                  ["first turn (no history)", "current + one history group", "all three sources"])
+        w = pd.DataFrame({name: d[f"w_{key}"].fillna(0.0) for key, name in zip(keys, names)})
+        w["group"] = n_hist.fillna(0).astype(int).map(dict(enumerate(labels)))
+        g = w.groupby("group")[names].mean().reindex(labels)
+        g["n"] = w.groupby("group").size().reindex(labels)
+        g = g.dropna(subset=["n"])  # a group with no utterances (e.g. a tiny test file)
+        g.loc["all test lines", names] = w[names].mean()
+        g.loc["all test lines", "n"] = len(w)
+        g["seed"] = spec.seed
+        per_seed.append(g.reset_index())
+    if not per_seed:
+        return pd.DataFrame()
+    allf = pd.concat(per_seed)
+    names = [c for c in allf.columns if c not in ("group", "n", "seed")]
+    order = list(dict.fromkeys(allf["group"]))
+    out = allf.groupby("group", sort=False)[names].mean().reindex(order)
+    out["spread"] = (allf.groupby("group")[names].max() - allf.groupby("group")[names].min()).max(axis=1)
+    out["n"] = allf.groupby("group")["n"].first().astype(int)
+    total = int(out.loc["all test lines", "n"])
+    out["share"] = out["n"] / total
+    out["n_seeds"] = allf["seed"].nunique()
+    return out.reset_index()
+
+
 # ---------------------------------------------------------------- dialogues
 
 def dialogue_records(turns: Sequence[tuple], dataset: str, dialogue_id: str = "demo") -> List[dict]:

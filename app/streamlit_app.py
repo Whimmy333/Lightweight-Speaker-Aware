@@ -456,6 +456,56 @@ with tab_results:
                 if abs(delta) < spread:
                     t4.caption(f"Within the seed-to-seed spread (±{spread:.3f}): treat as a tie with Single.")
 
+        # ---- where the learned gate looks, over the whole test set
+        gate = core.gate_summary(dataset, fusion_model, k)
+        if not gate.empty:
+            st.subheader("Where does the learned gate look?")
+            srcs = [c for c in gate.columns if c in SOURCE_COLOR]
+            by_group = gate.set_index("group")
+            main_group = "all three sources" if "all three sources" in by_group.index else "current + history"
+            main = by_group.loc[main_group]
+            label = core.MODEL_INFO[fusion_model].label
+            # headline group first, the equal split right under it, then the remaining history group
+            rows = [(f"{label} · {main_group} ({main['share']:.0%} of lines)", main[srcs]),
+                    (f"Fixed fusion · {main_group} (always equal)", pd.Series(1 / len(srcs), index=srcs))]
+            rows += [(f"{label} · {grp} ({by_group.loc[grp, 'share']:.0%} of lines)", by_group.loc[grp, srcs])
+                     for grp in by_group.index
+                     if grp not in (main_group, "first turn (no history)", "all test lines")]
+            gc1, gc2 = st.columns([3, 1])
+            with gc1:
+                fig = go.Figure()
+                for src in srcs:
+                    w = [float(r[src]) for _, r in rows]
+                    fig.add_bar(y=[name for name, _ in rows], x=w, orientation="h", name=src,
+                                marker=dict(color=SOURCE_COLOR[src], line=dict(color="white", width=2)),
+                                text=[f"{v:.0%}" if v >= 0.04 else "" for v in w], textposition="inside",
+                                insidetextanchor="middle", textfont=dict(color="white", size=14),
+                                hovertemplate=f"<b>{src}</b><br>mean weight %{{x:.1%}}<extra></extra>")
+                base_layout(fig, 100 + 46 * len(rows), barmode="stack", bargap=0.3)
+                fig.update_layout(margin=dict(t=40),  # legend on top: below, it collides with the axis labels
+                                  legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, traceorder="normal"))
+                fig.update_xaxes(range=[0, 1], tickformat=".0%")
+                fig.update_yaxes(autorange="reversed")
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            with gc2:
+                st.metric("Weight on the current line", f"{main['current']:.0%}",
+                          help=f"Mean over the test lines with {main_group}")
+                lines = []
+                if "same speaker" in srcs and main["other speaker"] > 0:
+                    lines.append(f"Speaker's own earlier turns {main['same speaker']:.0%} vs other speakers "
+                                 f"{main['other speaker']:.0%} ({main['same speaker'] / main['other speaker']:.1f}×).")
+                lines.append(f"Across all test lines: {by_group.loc['all test lines', 'current']:.0%} on the "
+                             "current line.")
+                spread = float(gate["spread"].max())
+                lines.append(f"Seeds agree within {spread:.2f}." if spread < 0.02 else
+                             f"Seeds differ by up to {spread:.2f}, so read these as rough.")
+                st.caption("  \n".join(lines))
+            first = by_group.loc["first turn (no history)", "share"] if "first turn (no history)" in by_group.index else 0
+            st.caption(f"{core.DATASET_NAMES[dataset]} test set, k = {k}: mean of the per-utterance gate weights, "
+                       f"averaged over {int(main['n_seeds'])} seeds. First turns ({first:.0%} of lines) have no "
+                       "history and use the current line alone. Fixed fusion always splits equally between the "
+                       "sources that exist.")
+
         c1, c2 = st.columns(2)
         with c1:
             fig = go.Figure()
